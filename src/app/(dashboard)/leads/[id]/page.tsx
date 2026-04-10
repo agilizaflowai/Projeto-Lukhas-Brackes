@@ -89,10 +89,10 @@ export default function LeadDetailPage() {
     const channel = supabase
       .channel(`lead-${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `lead_id=eq.${id}` },
-        (payload) => { setMessages(prev => [...prev, payload.new as Message]) }
+        (payload: any) => { setMessages(prev => [...prev, payload.new as Message]) }
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads', filter: `id=eq.${id}` },
-        (payload) => { if (payload.new) setLead(payload.new as Lead) }
+        (payload: any) => { if (payload.new) setLead(payload.new as Lead) }
       )
       .subscribe()
 

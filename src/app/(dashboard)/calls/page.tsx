@@ -36,7 +36,7 @@ export default function CallsPage() {
       .from('calls')
       .select('*, lead:leads(id, name, instagram_username)')
       .order('scheduled_at', { ascending: false, nullsFirst: false })
-      .then(({ data }) => {
+      .then(({ data }: { data: any }) => {
         if (data) setCalls(data as Call[])
         setLoading(false)
       })

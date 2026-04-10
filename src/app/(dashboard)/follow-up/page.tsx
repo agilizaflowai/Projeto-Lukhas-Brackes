@@ -25,7 +25,7 @@ export default function FollowUpPage() {
       .eq('stage', 'follow_up')
       .eq('is_active', true)
       .order('next_follow_up_at', { ascending: true, nullsFirst: false })
-      .then(({ data }) => {
+      .then(({ data }: { data: any }) => {
         if (data) setLeads(data)
         setLoading(false)
       })

@@ -24,7 +24,7 @@ export default function LeadsFriosPage() {
       .select('*')
       .eq('stage', 'lead_frio')
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
+      .then(({ data }: { data: any }) => {
         if (data) setLeads(data)
         setLoading(false)
       })

@@ -1,43 +1,29 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/types'
 
+// TODO: Restaurar autenticação Supabase quando estiver configurado
 export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
+    // Lê o email do cookie demo-email
+    const email = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('demo-email='))
+      ?.split('=')[1] || 'usuario@demo.com'
 
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      if (data) {
-        setProfile(data)
-      } else {
-        // Fallback: tabela profiles ainda nao existe ou usuario nao cadastrado
-        setProfile({
-          id: user.id,
-          email: user.email || '',
-          name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuario',
-          role: 'admin',
-          avatar: null,
-          created_at: user.created_at,
-        })
-      }
-      setLoading(false)
-    }
-
-    load()
+    setProfile({
+      id: 'demo-user',
+      email: decodeURIComponent(email),
+      name: decodeURIComponent(email).split('@')[0],
+      role: 'admin',
+      avatar: null,
+      created_at: new Date().toISOString(),
+    })
+    setLoading(false)
   }, [])
 
   return { profile, loading }

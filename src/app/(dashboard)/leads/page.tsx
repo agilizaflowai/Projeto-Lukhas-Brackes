@@ -22,7 +22,7 @@ export default function LeadsPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('leads').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+    supabase.from('leads').select('*').order('created_at', { ascending: false }).then(({ data }: { data: any }) => {
       if (data) setLeads(data)
       setLoading(false)
     })

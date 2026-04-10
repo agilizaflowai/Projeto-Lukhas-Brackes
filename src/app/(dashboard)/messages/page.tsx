@@ -35,7 +35,7 @@ export default function MessagesPage() {
   const [correctText, setCorrectText] = useState('')
 
   const load = useCallback(async () => {
-    const { data: msgs } = await supabase
+    const { data: msgs }: { data: any[] | null } = await supabase
       .from('messages')
       .select('*')
       .eq('status', 'pending')

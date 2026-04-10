@@ -1,25 +1,40 @@
 'use server'
 
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 
+// TODO: Restaurar autenticação Supabase quando estiver configurado
 export async function login(formData: FormData) {
-  const supabase = await createClient()
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-  })
-
-  if (error) {
-    return { error: error.message }
+  if (!email || !password) {
+    return { error: 'Preencha todos os campos' }
   }
+
+  // Aceita qualquer credencial por enquanto
+  const cookieStore = await cookies()
+  cookieStore.set('demo-session', 'true', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7, // 7 dias
+  })
+  cookieStore.set('demo-email', email, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+  })
 
   redirect('/')
 }
 
 export async function logout() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
+  const cookieStore = await cookies()
+  cookieStore.delete('demo-session')
+  cookieStore.delete('demo-email')
   redirect('/login')
 }
