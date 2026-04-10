@@ -25,7 +25,12 @@
       "Bash(npx shadcn@latest add \"https://magicui.design/r/number-ticker\" --yes)",
       "Bash(npx shadcn@latest add \"https://magicui.design/r/animated-grid-pattern\" --yes)",
       "Bash(node -e \"require\\('motion/react'\\); console.log\\('motion/react OK'\\)\")",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(gh auth:*)",
+      "Bash(ls .env*)",
+      "Bash(where gh:*)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "Bash(\"/c/Program Files \\(x86\\)/GitHub CLI/gh.exe\" auth status)"
     ]
   }
 }
