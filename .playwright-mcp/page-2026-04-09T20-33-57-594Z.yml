@@ -1,0 +1,104 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e9]: Agiliza Flow
+      - navigation [ref=e10]:
+        - link "Dashboard" [ref=e11] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e17]: Dashboard
+        - link "Pipeline" [ref=e18] [cursor=pointer]:
+          - /url: /pipeline
+          - img [ref=e19]
+          - generic [ref=e20]: Pipeline
+        - link "Leads" [ref=e21] [cursor=pointer]:
+          - /url: /leads
+          - img [ref=e22]
+          - generic [ref=e27]: Leads
+        - link "Leads Frios" [ref=e28] [cursor=pointer]:
+          - /url: /leads-frios
+          - img [ref=e29]
+          - generic [ref=e42]: Leads Frios
+        - link "Mensagens 2" [ref=e93] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e44]
+          - generic [ref=e46]: Mensagens
+          - generic [ref=e94]: "2"
+        - link "Depoimentos" [ref=e47] [cursor=pointer]:
+          - /url: /testimonials
+          - img [ref=e48]
+          - generic [ref=e51]: Depoimentos
+        - link "Calls" [ref=e52] [cursor=pointer]:
+          - /url: /calls
+          - img [ref=e53]
+          - generic [ref=e55]: Calls
+        - link "Tarefas 2" [ref=e95] [cursor=pointer]:
+          - /url: /tasks
+          - img [ref=e57]
+          - generic [ref=e60]: Tarefas
+          - generic [ref=e96]: "2"
+        - link "Follow-up" [ref=e61] [cursor=pointer]:
+          - /url: /follow-up
+          - img [ref=e62]
+          - generic [ref=e67]: Follow-up
+        - link "Configurações" [ref=e97] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e98]
+          - generic [ref=e101]: Configurações
+    - generic [ref=e68]:
+      - banner [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e102]: thiagovpacheco
+          - generic [ref=e71]: T
+          - button "Sair" [ref=e73] [cursor=pointer]:
+            - img
+      - main [ref=e74]:
+        - generic [ref=e75]:
+          - heading "Tarefas" [level=1] [ref=e76]
+          - paragraph [ref=e77]: Tarefas pendentes geradas pelo sistema
+          - generic [ref=e78]:
+            - generic [ref=e105]:
+              - generic [ref=e106]:
+                - generic [ref=e107]:
+                  - paragraph [ref=e108]: Interagir com story da Priscila
+                  - generic [ref=e109]: interact_story
+                - paragraph [ref=e110]: Faz 5 dias sem resposta. Interagir com story dela pra resgatar rapport.
+                - generic [ref=e111]:
+                  - generic [ref=e112]: "Texto sugerido:"
+                  - text: Vi teu story de corrida! Demais. Quantos km tu fez?
+                - generic [ref=e113]:
+                  - link "Priscila Nunes" [ref=e114] [cursor=pointer]:
+                    - /url: /leads/c6ec1edd-cdef-481a-8d34-3d7866858fda
+                  - generic [ref=e115]: Vence há 1 dia
+              - generic [ref=e116]:
+                - button "Feito" [ref=e117] [cursor=pointer]:
+                  - img
+                  - text: Feito
+                - button "Pular" [ref=e118] [cursor=pointer]:
+                  - img
+                  - text: Pular
+            - generic [ref=e121]:
+              - generic [ref=e122]:
+                - generic [ref=e123]:
+                  - paragraph [ref=e124]: Abordar Fernanda (lead frio)
+                  - generic [ref=e125]: manual_dm
+                - paragraph [ref=e126]: Seguiu e curtiu 3 posts. Perfil fit, dona de box de CrossFit.
+                - generic [ref=e127]:
+                  - generic [ref=e128]: "Texto sugerido:"
+                  - text: Oii Fernanda! Vi teu perfil e fiquei curioso, tu eh dona de box? Que massa!
+                - generic [ref=e129]:
+                  - link "Fernanda Lima" [ref=e130] [cursor=pointer]:
+                    - /url: /leads/f425cb2c-091c-4f86-ba35-23bfc5fe5687
+                  - generic [ref=e131]: Vence há 1 dia
+              - generic [ref=e132]:
+                - button "Feito" [ref=e133] [cursor=pointer]:
+                  - img
+                  - text: Feito
+                - button "Pular" [ref=e134] [cursor=pointer]:
+                  - img
+                  - text: Pular
+  - button "Open Next.js Dev Tools" [ref=e89] [cursor=pointer]:
+    - img [ref=e90]
+  - alert [ref=e135]

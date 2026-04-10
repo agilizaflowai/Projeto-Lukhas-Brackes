@@ -1,0 +1,163 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e9]: Agiliza Flow
+      - navigation [ref=e10]:
+        - link "Dashboard" [ref=e11] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e17]: Dashboard
+        - link "Pipeline" [ref=e18] [cursor=pointer]:
+          - /url: /pipeline
+          - img [ref=e19]
+          - generic [ref=e20]: Pipeline
+        - link "Leads" [ref=e21] [cursor=pointer]:
+          - /url: /leads
+          - img [ref=e22]
+          - generic [ref=e27]: Leads
+        - link "Leads Frios" [ref=e28] [cursor=pointer]:
+          - /url: /leads-frios
+          - img [ref=e29]
+          - generic [ref=e42]: Leads Frios
+        - link "Mensagens 2" [ref=e87] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e44]
+          - generic [ref=e46]: Mensagens
+          - generic [ref=e88]: "2"
+        - link "Depoimentos" [ref=e47] [cursor=pointer]:
+          - /url: /testimonials
+          - img [ref=e48]
+          - generic [ref=e51]: Depoimentos
+        - link "Calls" [ref=e52] [cursor=pointer]:
+          - /url: /calls
+          - img [ref=e53]
+          - generic [ref=e55]: Calls
+        - link "Tarefas 2" [ref=e89] [cursor=pointer]:
+          - /url: /tasks
+          - img [ref=e57]
+          - generic [ref=e60]: Tarefas
+          - generic [ref=e90]: "2"
+        - link "Follow-up" [ref=e61] [cursor=pointer]:
+          - /url: /follow-up
+          - img [ref=e62]
+          - generic [ref=e67]: Follow-up
+    - generic [ref=e68]:
+      - banner [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]: "?"
+          - button "Sair" [ref=e73] [cursor=pointer]:
+            - img
+      - main [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e93]:
+            - generic [ref=e94]:
+              - generic [ref=e96]: R
+              - generic [ref=e97]:
+                - paragraph [ref=e98]: Rafaela Santos
+                - paragraph [ref=e99]: "@rafa.wellness"
+            - paragraph [ref=e100]: Médica | Treino é meu remédio 💊🏋️
+            - generic [ref=e101]:
+              - generic [ref=e102]: 5.200 seguidores
+              - generic [ref=e103]: Não te segue
+            - link "Abrir no Instagram" [ref=e104] [cursor=pointer]:
+              - /url: https://instagram.com/rafa.wellness
+              - img [ref=e105]
+              - text: Abrir no Instagram
+            - separator [ref=e109]
+            - generic [ref=e110]:
+              - text: Etapa
+              - combobox [ref=e111]:
+                - option "Novo" [selected]
+                - option "Lead Frio"
+                - option "Rapport"
+                - option "Social Selling"
+                - option "SPIN"
+                - option "Call Agendada"
+                - option "Fechado"
+                - option "Perdido"
+                - option "Follow-up"
+            - generic [ref=e112]:
+              - text: Responsável
+              - combobox [ref=e113]:
+                - option "IA" [selected]
+                - option "Lukhas"
+                - option "Assistente"
+            - generic [ref=e114]:
+              - button "Assumir" [ref=e115] [cursor=pointer]:
+                - img
+                - text: Assumir
+              - button "Devolver IA" [ref=e116] [cursor=pointer]:
+                - img
+                - text: Devolver IA
+            - separator [ref=e117]
+            - generic [ref=e118]:
+              - generic [ref=e119]:
+                - text: Gênero
+                - combobox [ref=e120]:
+                  - option "—"
+                  - option "Masculino"
+                  - option "Feminino" [selected]
+                  - option "Outro"
+              - generic [ref=e121]:
+                - text: Nível Fitness
+                - combobox [ref=e122]:
+                  - option "—"
+                  - option "Sedentário"
+                  - option "Iniciante"
+                  - option "Intermediário" [selected]
+                  - option "Avançado"
+              - generic [ref=e123]:
+                - text: Objetivo
+                - combobox [ref=e124]:
+                  - option "—"
+                  - option "Emagrecer"
+                  - option "Hipertrofia"
+                  - option "Saúde" [selected]
+                  - option "Performance"
+              - generic [ref=e125]:
+                - text: Contexto
+                - textbox "mãe, estudante, etc" [ref=e126]: empresario
+              - generic [ref=e127]:
+                - text: Tags
+                - generic [ref=e128]:
+                  - generic [ref=e129]:
+                    - text: médica
+                    - button [ref=e130] [cursor=pointer]:
+                      - img [ref=e131]
+                  - generic [ref=e134]:
+                    - text: saúde
+                    - button [ref=e135] [cursor=pointer]:
+                      - img [ref=e136]
+                - generic [ref=e139]:
+                  - textbox "Nova tag" [ref=e140]
+                  - button "+" [ref=e141] [cursor=pointer]
+            - separator [ref=e142]
+            - generic [ref=e143]:
+              - button "Agendar Call" [ref=e144] [cursor=pointer]:
+                - img
+                - text: Agendar Call
+              - button "Adicionar Nota" [ref=e145] [cursor=pointer]:
+                - img
+                - text: Adicionar Nota
+              - button "Marcar Follow-up" [ref=e146] [cursor=pointer]:
+                - img
+                - text: Marcar Follow-up
+            - generic [ref=e147]:
+              - paragraph [ref=e148]: "Origem: curtida"
+              - paragraph [ref=e149]: "Entrada: 08/04/2026 04:59"
+          - generic [ref=e151]:
+            - generic [ref=e152]:
+              - button "Conversa" [ref=e153] [cursor=pointer]
+              - button "Atividade" [ref=e154] [cursor=pointer]
+              - button "Calls (0)" [ref=e155] [cursor=pointer]
+            - generic [ref=e159]:
+              - paragraph [ref=e161]: Nenhuma mensagem ainda
+              - generic [ref=e162]:
+                - textbox "Escrever mensagem..." [ref=e163]
+                - button [disabled]:
+                  - img
+  - button "Open Next.js Dev Tools" [ref=e83] [cursor=pointer]:
+    - img [ref=e84]
+  - alert [ref=e164]

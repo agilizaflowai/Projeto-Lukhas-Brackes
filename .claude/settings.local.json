@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(mkdir:*)",
+      "Bash(cp __TRACKED_VAR__/components/ui/badge.tsx src/components/ui/badge.tsx)",
+      "Bash(cp __TRACKED_VAR__/components/ui/tabs.tsx src/components/ui/tabs.tsx)",
+      "Bash(cp __TRACKED_VAR__/components/ui/dialog.tsx src/components/ui/dialog.tsx)",
+      "Bash(cp __TRACKED_VAR__/components/ui/textarea.tsx src/components/ui/textarea.tsx)",
+      "Bash(cp __TRACKED_VAR__/components/ui/select.tsx src/components/ui/select.tsx)",
+      "Bash(rm:*)",
+      "Bash(node -e ':*)",
+      "Bash(npm run:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_wait_for",
+      "Bash(npx tsc:*)",
+      "mcp__playwright__browser_take_screenshot",
+      "Bash(npm ls:*)",
+      "Bash(npx shadcn@latest add \"https://magicui.design/r/number-ticker\" --yes)",
+      "Bash(npx shadcn@latest add \"https://magicui.design/r/animated-grid-pattern\" --yes)",
+      "Bash(node -e \"require\\('motion/react'\\); console.log\\('motion/react OK'\\)\")",
+      "Bash(npx vercel:*)"
+    ]
+  }
+}

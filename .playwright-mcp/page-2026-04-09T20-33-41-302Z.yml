@@ -1,0 +1,84 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e9]: Agiliza Flow
+      - navigation [ref=e10]:
+        - link "Dashboard" [ref=e11] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e17]: Dashboard
+        - link "Pipeline" [ref=e18] [cursor=pointer]:
+          - /url: /pipeline
+          - img [ref=e19]
+          - generic [ref=e20]: Pipeline
+        - link "Leads" [ref=e21] [cursor=pointer]:
+          - /url: /leads
+          - img [ref=e22]
+          - generic [ref=e27]: Leads
+        - link "Leads Frios" [ref=e28] [cursor=pointer]:
+          - /url: /leads-frios
+          - img [ref=e29]
+          - generic [ref=e42]: Leads Frios
+        - link "Mensagens 2" [ref=e93] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e44]
+          - generic [ref=e46]: Mensagens
+          - generic [ref=e94]: "2"
+        - link "Depoimentos" [ref=e47] [cursor=pointer]:
+          - /url: /testimonials
+          - img [ref=e48]
+          - generic [ref=e51]: Depoimentos
+        - link "Calls" [ref=e52] [cursor=pointer]:
+          - /url: /calls
+          - img [ref=e53]
+          - generic [ref=e55]: Calls
+        - link "Tarefas 2" [ref=e95] [cursor=pointer]:
+          - /url: /tasks
+          - img [ref=e57]
+          - generic [ref=e60]: Tarefas
+          - generic [ref=e96]: "2"
+        - link "Follow-up" [ref=e61] [cursor=pointer]:
+          - /url: /follow-up
+          - img [ref=e62]
+          - generic [ref=e67]: Follow-up
+        - link "Configurações" [ref=e97] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e98]
+          - generic [ref=e101]: Configurações
+    - generic [ref=e68]:
+      - banner [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e102]: thiagovpacheco
+          - generic [ref=e71]: T
+          - button "Sair" [ref=e73] [cursor=pointer]:
+            - img
+      - main [ref=e74]:
+        - generic [ref=e75]:
+          - heading "Calls" [level=1] [ref=e76]
+          - paragraph [ref=e77]: Historico de calls agendadas e realizadas
+          - generic [ref=e78]:
+            - generic [ref=e104]:
+              - img [ref=e106]
+              - generic [ref=e108]:
+                - link "Ana Paula Rodrigues" [ref=e110] [cursor=pointer]:
+                  - /url: /leads/2d83df02-1a5c-4c44-8c64-bd80ba2a8ad7
+                - paragraph [ref=e111]: 10/04/2026 as 17:00
+            - generic [ref=e113]:
+              - img [ref=e115]
+              - generic [ref=e117]:
+                - link "Beatriz Oliveira" [ref=e119] [cursor=pointer]:
+                  - /url: /leads/c1d20602-6bed-448a-bfb7-5bca75982cff
+                - paragraph [ref=e120]: "31/03/2026 as 17:00 · 35 min · Score: 9/10"
+              - generic [ref=e121]: Fechou
+            - generic [ref=e123]:
+              - img [ref=e125]
+              - generic [ref=e127]:
+                - link "Priscila Nunes" [ref=e129] [cursor=pointer]:
+                  - /url: /leads/c6ec1edd-cdef-481a-8d34-3d7866858fda
+                - paragraph [ref=e130]: "24/03/2026 as 17:00 · 28 min · Score: 5/10"
+              - generic [ref=e131]: Nao Fechou
+  - button "Open Next.js Dev Tools" [ref=e89] [cursor=pointer]:
+    - img [ref=e90]
+  - alert [ref=e132]
