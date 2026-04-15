@@ -5,10 +5,12 @@ import { redirect } from 'next/navigation'
 import bcrypt from 'bcryptjs'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+  )
+}
 
 export async function login(_prev: { error: string } | null, formData: FormData) {
   const email = formData.get('email') as string
@@ -17,6 +19,8 @@ export async function login(_prev: { error: string } | null, formData: FormData)
   if (!email || !password) {
     return { error: 'Preencha todos os campos' }
   }
+
+  const supabase = getSupabase()
 
   const { data: user } = await supabase
     .from('app_users')

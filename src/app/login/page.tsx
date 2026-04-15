@@ -1,12 +1,30 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
-import { useActionState } from 'react'
 import { AlertCircle } from 'lucide-react'
-import { login } from './actions'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function LoginPage() {
-  const [state, formAction, pending] = useActionState(login, null)
+  const { login } = useAuth()
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setPending(true)
+
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+
+    const err = await login(email, password)
+    if (err) {
+      setError(err)
+      setPending(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8faf7] px-4">
@@ -30,7 +48,7 @@ export default function LoginPage() {
             <p className="text-[14px] text-[#9CA3AF] mt-1">Acesse o painel de automação</p>
           </div>
 
-          <form action={formAction} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-[12px] font-semibold text-[#414844] uppercase tracking-wide mb-1.5">
                 E-mail
@@ -59,10 +77,10 @@ export default function LoginPage() {
               />
             </div>
 
-            {state?.error && (
+            {error && (
               <div className="flex items-center gap-2 px-4 py-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-xl">
                 <AlertCircle className="w-4 h-4 text-[#EF4444] shrink-0" />
-                <span className="text-[13px] text-[#EF4444] font-medium">{state.error}</span>
+                <span className="text-[13px] text-[#EF4444] font-medium">{error}</span>
               </div>
             )}
 
