@@ -147,7 +147,7 @@ function KpiCard({ label, value, icon: Icon, showBar, barPercent, href, tooltip,
         {!showBar && (
           <div className="mt-2 sm:mt-2.5 pt-2 sm:pt-2.5 border-t border-[#F5F5F5]">
             <div className="text-[28px] sm:text-[36px] font-[800] text-[#0F172A] tracking-[-0.04em] leading-none">
-              {typeof value === 'number' ? String(value).padStart(2, '0') : value}
+              {value}
             </div>
           </div>
         )}
@@ -185,7 +185,7 @@ function FunnelBar({ label, count, max, color }: {
           className="h-9 sm:h-10 rounded-r-lg flex items-center transition-all duration-700 min-w-[48px] cursor-default"
           style={{ width: `${Math.max(pct, 12)}%`, backgroundColor: color }}
         >
-          <span className="ml-3 sm:ml-4 font-bold text-white text-sm">{count}</span>
+          <span className="ml-3 sm:ml-4 font-bold text-white text-[13px]">{count}</span>
         </div>
       </div>
     </div>
@@ -648,7 +648,7 @@ export default function DashboardPage() {
         {/* Funil de Vendas */}
         <div className="lg:col-span-3 bg-white p-5 sm:p-8 rounded-[14px] border-[0.5px] border-[#E5E7EB] relative" data-chart-container>
           <div className="flex justify-between items-center mb-6 sm:mb-8">
-            <h3 className="text-lg sm:text-xl font-bold text-[#1B3A2D]">Funil de Vendas</h3>
+            <h3 className="text-[16px] sm:text-[18px] font-bold text-[#1B3A2D]">Funil de Vendas</h3>
             <a href="/pipeline" className="text-[12px] font-bold text-[#1B3A2D] hover:opacity-80 transition-opacity">Ver detalhes</a>
           </div>
           <div className="space-y-4">

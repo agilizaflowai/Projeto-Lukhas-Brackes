@@ -18,33 +18,44 @@ interface SidebarProps {
   role: UserRole | undefined
   pendingMessages: number
   pendingTasks: number
+  overdueFollowUps: number
+  upcomingCalls: number
   open: boolean
   onClose: () => void
   onLeadCreated?: () => void
   profile?: { name?: string; email?: string; role?: string; avatar?: string | null } | null
 }
 
-const nav: { href: string; label: string; icon: LucideIcon; badge?: 'pendingMessages' | 'pendingTasks' }[] = [
+type BadgeKey = 'pendingMessages' | 'pendingTasks' | 'overdueFollowUps' | 'upcomingCalls'
+
+const BADGE_COLORS: Record<BadgeKey, string> = {
+  pendingMessages: 'bg-[#EF4444]',    // red — urgent
+  overdueFollowUps: 'bg-[#EF4444]',   // red — urgent
+  pendingTasks: 'bg-[#F59E0B]',       // amber — important
+  upcomingCalls: 'bg-[#3B82F6]',      // blue — reminder
+}
+
+const nav: { href: string; label: string; icon: LucideIcon; badge?: BadgeKey }[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/pipeline', label: 'Pipeline', icon: GitBranch },
   { href: '/leads', label: 'Leads', icon: Users },
   { href: '/leads-frios', label: 'Leads Frios', icon: Snowflake },
   { href: '/messages', label: 'Mensagens', icon: MessageSquare, badge: 'pendingMessages' },
   { href: '/testimonials', label: 'Depoimentos', icon: Trophy },
-  { href: '/calls', label: 'Calls', icon: Phone },
+  { href: '/calls', label: 'Calls', icon: Phone, badge: 'upcomingCalls' },
   { href: '/tasks', label: 'Tarefas', icon: CheckSquare, badge: 'pendingTasks' },
-  { href: '/follow-up', label: 'Follow-up', icon: RefreshCcw },
+  { href: '/follow-up', label: 'Follow-up', icon: RefreshCcw, badge: 'overdueFollowUps' },
 ]
 
-export function Sidebar({ role, pendingMessages, pendingTasks, open, onClose, onLeadCreated, profile }: SidebarProps) {
+export function Sidebar({ role, pendingMessages, pendingTasks, overdueFollowUps, upcomingCalls, open, onClose, onLeadCreated, profile }: SidebarProps) {
   const pathname = usePathname()
-  const badges = { pendingMessages, pendingTasks }
+  const badges: Record<BadgeKey, number> = { pendingMessages, pendingTasks, overdueFollowUps, upcomingCalls }
   const [showNewLead, setShowNewLead] = useState(false)
 
   const allItems = [
     ...nav,
     ...(role !== 'operator' ? [{ href: '/settings', label: 'Configurações', icon: Settings }] : []),
-  ] as { href: string; label: string; icon: LucideIcon; badge?: 'pendingMessages' | 'pendingTasks' }[]
+  ] as { href: string; label: string; icon: LucideIcon; badge?: BadgeKey }[]
 
   return (
     <>
@@ -82,8 +93,9 @@ export function Sidebar({ role, pendingMessages, pendingTasks, open, onClose, on
         <nav className="flex-1 space-y-0.5">
           {allItems.map((item) => {
             const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'))
-            const badgeKey = 'badge' in item ? item.badge : undefined
-            const badgeCount = badgeKey ? badges[badgeKey as keyof typeof badges] : 0
+            const badgeKey = item.badge
+            const badgeCount = badgeKey ? badges[badgeKey] : 0
+            const badgeColor = badgeKey ? BADGE_COLORS[badgeKey] : ''
 
             return (
               <Link
@@ -104,10 +116,10 @@ export function Sidebar({ role, pendingMessages, pendingTasks, open, onClose, on
                 <span className="text-sm flex-1">{item.label}</span>
                 {badgeCount > 0 && (
                   <span className={cn(
-                    'ml-auto min-w-[20px] h-[20px] rounded-full text-[10px] font-bold flex items-center justify-center',
+                    'ml-auto min-w-[20px] h-[20px] rounded-full text-[10px] font-bold flex items-center justify-center px-1.5',
                     active ? 'bg-[#1B3A2D]/20 text-[#1B3A2D]' : 'bg-[#C8E645]/30 text-[#1B3A2D]'
                   )}>
-                    {badgeCount}
+                    {badgeCount > 99 ? '99+' : badgeCount}
                   </span>
                 )}
               </Link>

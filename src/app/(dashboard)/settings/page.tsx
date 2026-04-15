@@ -369,7 +369,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center border-b border-[#F3F4F6] mb-6">
+      <div className="flex items-center border-b border-[#F3F4F6] mb-6 overflow-x-auto hide-scrollbar">
         {TABS.map(tab => {
           const Icon = tab.icon
           return (
@@ -377,7 +377,7 @@ export default function SettingsPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 px-4 py-3 text-[14px] font-medium transition-all relative',
+                'flex items-center gap-2 px-4 py-3 text-[14px] font-medium transition-all relative whitespace-nowrap flex-shrink-0',
                 activeTab === tab.id
                   ? 'text-[#111827] font-semibold'
                   : 'text-[#9CA3AF] hover:text-[#6B7280]'
@@ -832,7 +832,7 @@ export default function SettingsPage() {
           <div className="bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
             <div className="px-6 py-4 border-b border-[#F5F5F5]">
               <h3 className="text-[15px] font-bold text-[#111827]">Status do clone de voz</h3>
-              <p className="text-[13px] text-[#9CA3AF] mt-0.5">Configure o clone de voz do ElevenLabs pra enviar áudios personalizados</p>
+              <p className="text-[13px] text-[#9CA3AF] mt-0.5">Configure o clone de voz pra enviar áudios personalizados</p>
             </div>
 
             <div className="p-6">
@@ -851,7 +851,7 @@ export default function SettingsPage() {
                     <p className="text-[12px] text-[#9CA3AF]">
                       {voiceActive
                         ? 'Pronto pra gerar áudios na ficha do lead'
-                        : 'Configure a API Key do ElevenLabs pra ativar'
+                        : 'Configure o Voice ID e o endpoint pra ativar'
                       }
                     </p>
                   </div>
@@ -874,12 +874,12 @@ export default function SettingsPage() {
               <div className="mt-4 space-y-4">
                 <div>
                   <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">
-                    ElevenLabs Voice ID
+                    Voice ID
                   </label>
                   <input
                     value={voiceId}
                     onChange={e => setVoiceId(e.target.value)}
-                    placeholder="ID da voz clonada no ElevenLabs"
+                    placeholder="ID da voz clonada"
                     className="w-full bg-[#F7F8F9] border-[1.5px] border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#374151] placeholder-[#C0C7D0] focus:border-[#C8E645] focus:ring-0 focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(200,230,69,0.12)] transition-all font-mono"
                   />
                 </div>

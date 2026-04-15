@@ -240,8 +240,8 @@ export default function CallDetailPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <FileText className="w-8 h-8 text-[#D1D5DB] mx-auto mb-3" />
+              <div className="text-center py-8">
+                <FileText className="w-7 h-7 text-[#D1D5DB] mx-auto mb-2" />
                 <p className="text-[13px] text-[#9CA3AF]">Transcrição não disponível</p>
                 <p className="text-[11px] text-[#C0C7D0] mt-1">Será adicionada automaticamente após a call</p>
               </div>

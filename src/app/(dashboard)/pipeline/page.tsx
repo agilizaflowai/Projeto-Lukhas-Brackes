@@ -248,7 +248,7 @@ export default function PipelinePage() {
         </div>
         <button
           onClick={() => setShowNewLead(true)}
-          className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-sm font-bold hover:opacity-90 active:scale-95 transition-all"
+          className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-[14px] font-bold hover:opacity-90 active:scale-95 transition-all"
         >
           <Plus className="w-4 h-4" />
           Novo Lead
@@ -260,7 +260,7 @@ export default function PipelinePage() {
         <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[220px] focus-within:border-[#C8E645] transition-colors">
           <Search className="w-4 h-4 text-[#9CA3AF]" />
           <input
-            className="bg-transparent border-none focus:ring-0 focus:outline-none text-sm text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
+            className="bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
             placeholder="Filtrar leads..."
             value={search}
             onChange={e => setSearch(e.target.value)}

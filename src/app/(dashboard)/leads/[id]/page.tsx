@@ -753,7 +753,7 @@ export default function LeadDetailPage() {
         {activeTab === 'atividade' && (
           <div className="flex-1 p-6 overflow-y-auto dropdown-scroll min-h-0">
             {activities.length === 0 ? (
-              <p className="text-center text-[#9CA3AF] text-sm py-12">Nenhuma atividade registrada</p>
+              <p className="text-center text-[#9CA3AF] text-[13px] py-12">Nenhuma atividade registrada</p>
             ) : (
               <div className="space-y-4">
                 {activities.map(act => {
@@ -784,7 +784,7 @@ export default function LeadDetailPage() {
         {activeTab === 'calls' && (
           <div className="flex-1 p-6 overflow-y-auto dropdown-scroll min-h-0">
             {calls.length === 0 ? (
-              <p className="text-center text-[#9CA3AF] text-sm py-12">Nenhuma call registrada</p>
+              <p className="text-center text-[#9CA3AF] text-[13px] py-12">Nenhuma call registrada</p>
             ) : (
               <div className="space-y-3">
                 {calls.map(call => (

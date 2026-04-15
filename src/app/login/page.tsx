@@ -44,7 +44,7 @@ export default function LoginPage() {
         {/* Card */}
         <div className="bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] p-8">
           <div className="text-center mb-6">
-            <h1 className="text-[20px] font-bold text-[#1B3A2D]">Entrar</h1>
+            <h1 className="text-[22px] font-bold text-[#1B3A2D]">Entrar</h1>
             <p className="text-[14px] text-[#9CA3AF] mt-1">Acesse o painel de automação</p>
           </div>
 
@@ -59,7 +59,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="seu@email.com"
                 required
-                className="w-full bg-[#F7F8F9] border border-[#EFEFEF] rounded-xl px-4 py-2.5 text-sm text-[#1B3A2D] focus:outline-none focus:border-[#C8E645] focus:ring-2 focus:ring-[#C8E645]/20 transition-all placeholder-[#9CA3AF]"
+                className="w-full bg-[#F7F8F9] border border-[#EFEFEF] rounded-[10px] px-4 py-2.5 text-[14px] text-[#1B3A2D] focus:outline-none focus:border-[#C8E645] focus:ring-2 focus:ring-[#C8E645]/20 transition-all placeholder-[#9CA3AF]"
               />
             </div>
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
                 type="password"
                 placeholder="••••••••"
                 required
-                className="w-full bg-[#F7F8F9] border border-[#EFEFEF] rounded-xl px-4 py-2.5 text-sm text-[#1B3A2D] focus:outline-none focus:border-[#C8E645] focus:ring-2 focus:ring-[#C8E645]/20 transition-all placeholder-[#9CA3AF]"
+                className="w-full bg-[#F7F8F9] border border-[#EFEFEF] rounded-[10px] px-4 py-2.5 text-[14px] text-[#1B3A2D] focus:outline-none focus:border-[#C8E645] focus:ring-2 focus:ring-[#C8E645]/20 transition-all placeholder-[#9CA3AF]"
               />
             </div>
 
@@ -87,7 +87,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full bg-[#C8E645] text-[#1B3A2D] font-bold py-3 rounded-full text-sm hover:bg-[#b8d635] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(200,230,69,0.35)]"
+              className="w-full bg-[#C8E645] text-[#1B3A2D] font-bold py-3 rounded-full text-[14px] hover:bg-[#b8d635] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(200,230,69,0.35)]"
             >
               {pending ? (
                 <>

@@ -11,6 +11,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingMessages, setPendingMessages] = useState(0)
   const [pendingTasks, setPendingTasks] = useState(0)
+  const [overdueFollowUps, setOverdueFollowUps] = useState(0)
+  const [upcomingCalls, setUpcomingCalls] = useState(0)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
 
@@ -31,23 +33,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     supabaseRef.current = supabase
 
     async function loadCounts() {
-      const [msgs, tasks] = await Promise.all([
+      const now = new Date()
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+
+      const [msgs, tasks, followUps, calls] = await Promise.all([
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('leads').select('id', { count: 'exact', head: true })
+          .eq('stage', 'follow_up').eq('is_active', true).lt('next_follow_up_at', now.toISOString()),
+        supabase.from('calls').select('id', { count: 'exact', head: true })
+          .is('result', null),
       ])
       setPendingMessages(msgs.count || 0)
       setPendingTasks(tasks.count || 0)
+      setOverdueFollowUps(followUps.count || 0)
+      setUpcomingCalls(calls.count || 0)
     }
 
     loadCounts()
+    const badgeInterval = setInterval(loadCounts, 60000)
 
     channelRef.current = supabase
       .channel('badge-counts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadCounts())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadCounts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadCounts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calls' }, () => loadCounts())
       .subscribe()
 
     return () => {
+      clearInterval(badgeInterval)
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
         channelRef.current = null
@@ -70,6 +85,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         role={profile?.role}
         pendingMessages={pendingMessages}
         pendingTasks={pendingTasks}
+        overdueFollowUps={overdueFollowUps}
+        upcomingCalls={upcomingCalls}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         profile={profile}

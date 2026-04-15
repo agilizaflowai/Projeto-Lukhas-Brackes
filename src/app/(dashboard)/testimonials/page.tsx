@@ -151,7 +151,7 @@ export default function TestimonialsPage() {
           </p>
         </div>
         <button onClick={openNew}
-          className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-sm font-bold hover:opacity-90 active:scale-95 transition-all">
+          className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-[14px] font-bold hover:opacity-90 active:scale-95 transition-all">
           <Plus className="w-4 h-4" /> Novo depoimento
         </button>
       </div>

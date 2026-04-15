@@ -187,14 +187,16 @@ export default function MessagesPage() {
                 )}
               >
                 {/* Header */}
-                <div className="flex items-center gap-3 px-5 pt-5 pb-3">
-                  <LeadAvatar name={lead?.name || null} username={lead?.instagram_username} photoUrl={lead?.profile_pic_url || null} size="md" />
+                <div className="flex items-center gap-4 px-5 pt-5 pb-3">
+                  <Link href={`/leads/${msg.lead_id}`} className="flex-shrink-0">
+                    <LeadAvatar name={lead?.name || null} username={lead?.instagram_username} photoUrl={lead?.profile_pic_url || null} size="lg" className="hover:ring-2 hover:ring-[#C8E645]/30 transition-all" />
+                  </Link>
                   <div className="flex-1 min-w-0">
-                    <Link href={`/leads/${msg.lead_id}`} className="text-[14px] font-bold text-[#111827] hover:underline truncate max-w-[280px] block">
+                    <Link href={`/leads/${msg.lead_id}`} className="text-[14px] font-bold text-[#111827] hover:underline truncate block">
                       {displayName}
                     </Link>
                     {lead?.name && readable && (
-                      <span className="text-[11px] text-[#9CA3AF]">@{lead.instagram_username}</span>
+                      <span className="text-[12px] text-[#9CA3AF] -mt-0.5 block">@{lead.instagram_username}</span>
                     )}
                   </div>
                   {(() => {

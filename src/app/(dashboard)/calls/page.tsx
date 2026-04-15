@@ -128,7 +128,7 @@ export default function CallsPage() {
         <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[240px] focus-within:border-[#C8E645] transition-colors">
           <Search className="w-4 h-4 text-[#9CA3AF]" />
           <input
-            className="bg-transparent border-none focus:ring-0 focus:outline-none text-sm text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
+            className="bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
             placeholder="Buscar por lead..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -176,7 +176,7 @@ export default function CallsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-[#FAFBFC] border-b border-[#F3F4F6]">
                 <th className="text-left px-5 py-3 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em]">Lead</th>

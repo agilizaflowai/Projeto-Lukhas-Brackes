@@ -159,7 +159,7 @@ export default function LeadsFriosPage() {
         <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[260px] focus-within:border-[#C8E645] transition-colors">
           <Search className="w-4 h-4 text-[#9CA3AF]" />
           <input
-            className="bg-transparent border-none focus:ring-0 focus:outline-none text-sm text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
+            className="bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
             placeholder="Buscar por nome ou @username..."
             value={search}
             onChange={e => setSearch(e.target.value)}

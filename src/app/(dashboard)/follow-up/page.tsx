@@ -394,7 +394,7 @@ export default function FollowUpPage() {
                           {Array.from({ length: 6 }).map((_, i) => (
                             <div key={i} className={cn(
                               'flex-1 h-[5px] rounded-full',
-                              i < (lead.follow_up_count || 0) ? 'bg-[#C8E645]' : 'bg-[#F3F4F6]'
+                              i < (lead.follow_up_count || 0) ? 'bg-[#C8E645]' : 'bg-[#E5E7EB]'
                             )} />
                           ))}
                         </div>
@@ -637,7 +637,7 @@ export default function FollowUpPage() {
               </div>
             ) : (
               <div className="bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
-                <table className="w-full text-sm">
+                <table className="w-full text-[13px]">
                   <thead>
                     <tr className="bg-[#FAFBFC] border-b border-[#F3F4F6]">
                       <th className="text-left px-5 py-3 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em]">Lead</th>
