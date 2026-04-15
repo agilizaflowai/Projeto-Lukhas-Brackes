@@ -3,21 +3,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer active:scale-[0.98]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8E645]/30 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer active:scale-[0.97]",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[0_0_15px_rgba(57,255,142,0.3)]",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-[#1B3A2D] text-white hover:bg-[#1B3A2D]/90 shadow-[0_2px_8px_rgba(27,58,45,0.2)]",
+        destructive: "bg-[#BA1A1A] text-white hover:bg-[#BA1A1A]/90",
+        outline: "border border-[#EFEFEF] bg-white text-[#414844] hover:bg-[#F7F8F9] hover:border-[#E5E7EB]",
+        secondary: "bg-[#F7F8F9] text-[#414844] hover:bg-[#E7E9E6]",
+        ghost: "text-[#414844] hover:bg-[#F7F8F9]",
+        link: "text-[#1B3A2D] underline-offset-4 hover:underline",
+        accent: "bg-[#C8E645] text-[#1B3A2D] font-bold hover:bg-[#b8d635] shadow-[0_2px_8px_rgba(200,230,69,0.35)]",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
+        default: "h-10 px-5 py-2",
+        sm: "h-9 px-4 text-[13px]",
+        lg: "h-11 px-8",
         icon: "h-10 w-10",
       },
     },

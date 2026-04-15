@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { X } from "lucide-react"
 
@@ -11,22 +12,30 @@ interface DialogProps {
 }
 
 function Dialog({ open, onOpenChange, children }: DialogProps) {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-[4px]" onClick={() => onOpenChange(false)} />
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!open || !mounted) return null
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100]">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => onOpenChange(false)} />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
 function DialogContent({ className, children, onClose, ...props }: React.HTMLAttributes<HTMLDivElement> & { onClose?: () => void }) {
   return (
-    <div className={cn("relative z-50 w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg animate-dialog-in", className)} {...props}>
+    <div className={cn("relative z-[101] w-full max-w-lg rounded-[20px] border border-[#EFEFEF] bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.15)] animate-dialog-in", className)} {...props}>
       {onClose && (
-        <button onClick={onClose} className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 cursor-pointer">
+        <button onClick={onClose} className="absolute right-4 top-4 rounded-full w-8 h-8 flex items-center justify-center text-[#9CA3AF] hover:bg-[#F7F8F9] hover:text-[#414844] transition-all duration-150 cursor-pointer">
           <X className="h-4 w-4" />
         </button>
       )}
@@ -40,15 +49,15 @@ function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 }
 
 function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />
+  return <h2 className={cn("text-lg font-bold text-[#0F172A] leading-none tracking-tight", className)} {...props} />
 }
 
 function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn("text-sm text-muted-foreground", className)} {...props} />
+  return <p className={cn("text-sm text-[#9CA3AF]", className)} {...props} />
 }
 
 function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4", className)} {...props} />
+  return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6", className)} {...props} />
 }
 
 export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter }

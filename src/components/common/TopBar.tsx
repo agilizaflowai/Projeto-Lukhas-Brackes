@@ -1,9 +1,10 @@
 'use client'
 
-import { logout } from '@/app/login/actions'
-import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/useAuth'
 import { Menu, LogOut } from 'lucide-react'
 import type { Profile } from '@/lib/types'
+import { SearchDropdown } from './SearchDropdown'
+import { NotificationPopover } from './NotificationPopover'
 
 interface TopBarProps {
   profile: Profile | null
@@ -11,24 +12,51 @@ interface TopBarProps {
 }
 
 export function TopBar({ profile, onMenuClick }: TopBarProps) {
+  const { logout } = useAuth()
+
   return (
-    <header className="sticky top-0 z-30 h-14 border-b border-[#1a1f3e] bg-[#0c0e1a]/80 backdrop-blur-xl flex items-center justify-between px-4 lg:px-6">
-      <button onClick={onMenuClick} className="lg:hidden text-slate-400 hover:text-slate-200 transition-colors">
+    <header className="h-[64px] sticky top-0 z-40 bg-white border border-[#EFEFEF] rounded-[16px] mx-4 mt-3 px-5 flex justify-between items-center shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] shrink-0">
+      {/* Mobile menu */}
+      <button onClick={onMenuClick} className="lg:hidden text-[#414844] hover:text-[#1B3A2D] transition-colors">
         <Menu className="w-5 h-5" />
       </button>
 
-      <div className="hidden lg:block" />
+      {/* Search */}
+      <SearchDropdown />
 
-      <div className="flex items-center gap-3">
-        <span className="text-[13px] text-slate-400">{profile?.name || profile?.email}</span>
-        <div className="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-xs font-bold ring-2 ring-emerald-400/30">
-          {(profile?.name || profile?.email || '?')[0].toUpperCase()}
+      <div className="flex items-center">
+        {/* Notifications */}
+        <NotificationPopover />
+
+        {/* Divider */}
+        <div className="w-[1px] h-[20px] bg-[#EFEFEF] mx-3 hidden sm:block" />
+
+        {/* User */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="text-right hidden sm:block">
+            <p className="text-[13px] font-bold text-[#0F172A] leading-tight">
+              {profile?.name || profile?.email || 'Usuário'}
+            </p>
+            <p className="text-[10px] font-medium text-[#9CA3AF] tracking-[0.06em] uppercase">
+              {profile?.role === 'admin' ? 'Administrador' : 'Operador'}
+            </p>
+          </div>
+          <div className="w-9 h-9 rounded-full border-2 border-[#C8E645] bg-[#1B3A2D] flex items-center justify-center text-[#C8E645] text-xs font-bold shrink-0">
+            {(profile?.name || profile?.email || '?')[0].toUpperCase()}
+          </div>
         </div>
-        <form action={logout}>
-          <Button variant="ghost" size="icon" type="submit" title="Sair" className="opacity-50 hover:opacity-100 transition-all duration-150">
-            <LogOut className="w-4 h-4" />
-          </Button>
-        </form>
+
+        {/* Divider */}
+        <div className="w-[1px] h-[20px] bg-[#EFEFEF] mx-2 sm:mx-3 hidden sm:block" />
+
+        {/* Logout */}
+        <button
+          onClick={logout}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#EFEFEF] bg-transparent text-[#9CA3AF] text-[12px] font-medium hover:bg-[#FEF2F2] hover:border-[#FECACA] hover:text-[#EF4444] transition-all group"
+        >
+          <LogOut className="w-3.5 h-3.5 text-[#9CA3AF] group-hover:text-[#EF4444]" />
+          <span className="hidden sm:inline">Sair</span>
+        </button>
       </div>
     </header>
   )

@@ -63,6 +63,7 @@ export interface Message {
 export interface Testimonial {
   id: string
   student_name: string
+  student_instagram: string | null
   content: string
   media_url: string | null
   media_type: string | null
@@ -71,6 +72,7 @@ export interface Testimonial {
   student_goal: string | null
   student_context: string | null
   result_summary: string | null
+  source: string | null
   tags: string[]
   is_active: boolean
   created_at: string

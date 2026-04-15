@@ -1,14 +1,18 @@
 'use client'
 
+import Image from 'next/image'
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/lib/types'
 import {
-  LayoutDashboard, Kanban, Users, Snowflake, MessageSquare,
-  Award, Phone, ListTodo, RefreshCw, Settings, Zap, X,
+  X, LayoutDashboard, GitBranch, Users, Snowflake,
+  MessageSquare, Trophy, Phone, CheckSquare, RefreshCcw,
+  Settings, Plus,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { NewLeadModal } from '@/components/dashboard/NewLeadModal'
 
 interface SidebarProps {
   role: UserRole | undefined
@@ -16,66 +20,70 @@ interface SidebarProps {
   pendingTasks: number
   open: boolean
   onClose: () => void
-  profile?: { name?: string; email?: string; role?: string } | null
+  onLeadCreated?: () => void
+  profile?: { name?: string; email?: string; role?: string; avatar?: string | null } | null
 }
 
-const nav = [
+const nav: { href: string; label: string; icon: LucideIcon; badge?: 'pendingMessages' | 'pendingTasks' }[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/pipeline', label: 'Pipeline', icon: Kanban },
+  { href: '/pipeline', label: 'Pipeline', icon: GitBranch },
   { href: '/leads', label: 'Leads', icon: Users },
   { href: '/leads-frios', label: 'Leads Frios', icon: Snowflake },
-  { href: '/messages', label: 'Mensagens', icon: MessageSquare, badge: 'pendingMessages' as const },
-  { href: '/testimonials', label: 'Depoimentos', icon: Award },
+  { href: '/messages', label: 'Mensagens', icon: MessageSquare, badge: 'pendingMessages' },
+  { href: '/testimonials', label: 'Depoimentos', icon: Trophy },
   { href: '/calls', label: 'Calls', icon: Phone },
-  { href: '/tasks', label: 'Tarefas', icon: ListTodo, badge: 'pendingTasks' as const },
-  { href: '/follow-up', label: 'Follow-up', icon: RefreshCw },
+  { href: '/tasks', label: 'Tarefas', icon: CheckSquare, badge: 'pendingTasks' },
+  { href: '/follow-up', label: 'Follow-up', icon: RefreshCcw },
 ]
 
-export function Sidebar({ role, pendingMessages, pendingTasks, open, onClose, profile }: SidebarProps) {
+export function Sidebar({ role, pendingMessages, pendingTasks, open, onClose, onLeadCreated, profile }: SidebarProps) {
   const pathname = usePathname()
   const badges = { pendingMessages, pendingTasks }
+  const [showNewLead, setShowNewLead] = useState(false)
 
   const allItems = [
     ...nav,
-    ...(role === 'admin' ? [{ href: '/settings', label: 'Configuracoes', icon: Settings }] : []),
-  ]
+    ...(role !== 'operator' ? [{ href: '/settings', label: 'Configurações', icon: Settings }] : []),
+  ] as { href: string; label: string; icon: LucideIcon; badge?: 'pendingMessages' | 'pendingTasks' }[]
 
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" onClick={onClose} />
       )}
 
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 flex h-full w-64 flex-col bg-[#080a14] text-slate-400 border-r border-[#1a1f3e] transition-transform lg:translate-x-0 lg:static lg:z-auto',
-          open ? 'translate-x-0' : '-translate-x-full'
+          'fixed top-0 left-0 z-50 flex h-full w-[220px] flex-col pt-5 pb-8 px-4 overflow-y-auto transition-transform lg:translate-x-0',
+          'bg-[#f8faf7]',
+          open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-[#1a1f3e]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-black" />
-            </div>
-            <span className="text-[15px] font-bold tracking-tight text-slate-100" style={{ fontFamily: 'var(--font-display)' }}>
-              Agiliza Flow
-            </span>
+        <button onClick={onClose} className="absolute top-4 right-4 lg:hidden text-[#1B3A2D]/40 hover:text-[#1B3A2D]">
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Logo */}
+        <div className="mb-8 px-1">
+          <div className="relative h-[56px] w-[178px] overflow-hidden">
+            <Image
+              src="/logo.svg"
+              alt="Lukhas Brackes"
+              fill
+              priority
+              sizes="178px"
+              className="object-contain object-left-top scale-[1.18] -translate-y-2 origin-top-left"
+            />
           </div>
-          <button onClick={onClose} className="lg:hidden text-slate-500 hover:text-slate-300 transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+          <p className="mt-0.5 pl-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#1B3A2D]/40">CRM Inteligente</p>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+        <nav className="flex-1 space-y-0.5">
           {allItems.map((item) => {
-            const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
-            const isExact = pathname === item.href
-            const Icon = item.icon
+            const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'))
             const badgeKey = 'badge' in item ? item.badge : undefined
             const badgeCount = badgeKey ? badges[badgeKey as keyof typeof badges] : 0
-            const isMsgBadge = badgeKey === 'pendingMessages'
 
             return (
               <Link
@@ -83,29 +91,22 @@ export function Sidebar({ role, pendingMessages, pendingTasks, open, onClose, pr
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  'relative flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200',
-                  (isExact || active)
-                    ? 'text-emerald-400 bg-emerald-400/[0.08]'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03] hover:translate-x-0.5'
+                  'rounded-full px-4 py-[9px] my-[1px] transition-all duration-200 flex items-center gap-3',
+                  active
+                    ? 'bg-[#C8E645] text-[#111827] font-bold'
+                    : 'text-[#1B3A2D] hover:bg-[#f2f4f1] group'
                 )}
               >
-                {(isExact || active) && (
-                  <motion.div
-                    layoutId="sidebar-indicator"
-                    className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-emerald-400"
-                    transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                  />
-                )}
-                <Icon className="w-[18px] h-[18px] shrink-0" />
-                <span className="flex-1">{item.label}</span>
+                <item.icon className={cn(
+                  'w-5 h-5 shrink-0',
+                  !active && 'opacity-70 group-hover:opacity-100'
+                )} />
+                <span className="text-sm flex-1">{item.label}</span>
                 {badgeCount > 0 && (
-                  <span
-                    className={cn(
-                      'ml-auto flex items-center justify-center min-w-[22px] h-[22px] rounded-full text-[11px] font-semibold',
-                      isMsgBadge ? 'bg-emerald-400/15 text-emerald-400' : 'bg-pink-400/15 text-pink-400'
-                    )}
-                    style={{ fontFamily: 'var(--font-mono)' }}
-                  >
+                  <span className={cn(
+                    'ml-auto min-w-[20px] h-[20px] rounded-full text-[10px] font-bold flex items-center justify-center',
+                    active ? 'bg-[#1B3A2D]/20 text-[#1B3A2D]' : 'bg-[#C8E645]/30 text-[#1B3A2D]'
+                  )}>
                     {badgeCount}
                   </span>
                 )}
@@ -114,23 +115,24 @@ export function Sidebar({ role, pendingMessages, pendingTasks, open, onClose, pr
           })}
         </nav>
 
-        {/* Divider */}
-        <div className="h-px bg-gradient-to-r from-transparent via-[#1a1f3e] to-transparent mx-3" />
-
-        {/* User section */}
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="relative">
-            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs font-bold text-emerald-400">
-              {(profile?.name || profile?.email || '?')[0].toUpperCase()}
-            </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#080a14]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">{profile?.name || profile?.email || 'Usuario'}</p>
-            <p className="text-[11px] text-slate-500">{profile?.role || 'admin'}</p>
-          </div>
+        {/* Bottom */}
+        <div className="mt-8 pt-8 border-t border-[#EFEFEF]">
+          <button
+            onClick={() => setShowNewLead(true)}
+            className="w-full bg-[#1B3A2D] text-white py-3 px-4 rounded-full font-bold text-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Lead
+          </button>
         </div>
+
       </aside>
+
+      <NewLeadModal
+        open={showNewLead}
+        onOpenChange={setShowNewLead}
+        onCreated={onLeadCreated}
+      />
     </>
   )
 }
