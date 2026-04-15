@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+  )
+}
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json()
@@ -13,6 +15,8 @@ export async function POST(req: NextRequest) {
   if (!email || !password) {
     return NextResponse.json({ error: 'Preencha todos os campos' }, { status: 400 })
   }
+
+  const supabase = getSupabase()
 
   const { data: user } = await supabase
     .from('app_users')
