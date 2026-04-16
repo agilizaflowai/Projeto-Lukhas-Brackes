@@ -32,7 +32,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-10 flex items-center justify-center">
           <Image
-            src="/logo.svg"
+            src="/logo.png"
             alt="Lukhas Brackes"
             width={260}
             height={146}

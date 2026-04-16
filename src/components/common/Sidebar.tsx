@@ -78,7 +78,7 @@ export function Sidebar({ role, pendingMessages, pendingTasks, overdueFollowUps,
         <div className="mb-8 px-1">
           <div className="relative h-[56px] w-[178px] overflow-hidden">
             <Image
-              src="/logo.svg"
+              src="/logo.png"
               alt="Lukhas Brackes"
               fill
               priority
