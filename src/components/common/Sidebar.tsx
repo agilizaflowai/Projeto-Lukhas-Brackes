@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -9,10 +8,9 @@ import type { UserRole } from '@/lib/types'
 import {
   X, LayoutDashboard, GitBranch, Users, Snowflake,
   MessageSquare, Trophy, Phone, CheckSquare, RefreshCcw,
-  Settings, Plus,
+  Settings,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { NewLeadModal } from '@/components/dashboard/NewLeadModal'
 
 interface SidebarProps {
   role: UserRole | undefined
@@ -50,8 +48,6 @@ const nav: { href: string; label: string; icon: LucideIcon; badge?: BadgeKey }[]
 export function Sidebar({ role, pendingMessages, pendingTasks, overdueFollowUps, upcomingCalls, open, onClose, onLeadCreated, profile }: SidebarProps) {
   const pathname = usePathname()
   const badges: Record<BadgeKey, number> = { pendingMessages, pendingTasks, overdueFollowUps, upcomingCalls }
-  const [showNewLead, setShowNewLead] = useState(false)
-
   const allItems = [
     ...nav,
     ...(role !== 'operator' ? [{ href: '/settings', label: 'Configurações', icon: Settings }] : []),
@@ -127,24 +123,7 @@ export function Sidebar({ role, pendingMessages, pendingTasks, overdueFollowUps,
           })}
         </nav>
 
-        {/* Bottom */}
-        <div className="mt-8 pt-8 border-t border-[#EFEFEF]">
-          <button
-            onClick={() => setShowNewLead(true)}
-            className="w-full bg-[#1B3A2D] text-white py-3 px-4 rounded-full font-bold text-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Lead
-          </button>
-        </div>
-
       </aside>
-
-      <NewLeadModal
-        open={showNewLead}
-        onOpenChange={setShowNewLead}
-        onCreated={onLeadCreated}
-      />
     </>
   )
 }

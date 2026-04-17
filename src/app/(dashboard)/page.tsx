@@ -11,7 +11,7 @@ import { LeadAvatar } from '@/components/common/LeadAvatar'
 import {
   UserPlus, MessageCircle, Calendar, Zap, CalendarCheck, Target,
   Camera, MessageSquareText, Send, Heart, Pencil, Share2, Leaf, Megaphone,
-  ChevronDown, Sparkles, HelpCircle,
+  ChevronDown, HelpCircle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -673,7 +673,7 @@ export default function DashboardPage() {
           {activities.length > 0 ? (
             <div className="space-y-0">
               {activities.map((a) => {
-                const cfg = getActivityConfig(a.action)
+                const cfg = getActivityConfig(a.action, a.details)
                 // Display name: prefer name, fallback to @username
                 const displayName = (a.lead_name && !a.lead_name.startsWith('ig_'))
                   ? a.lead_name
@@ -893,11 +893,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Floating AI Button */}
-      <button className="fixed bottom-5 right-5 sm:bottom-8 sm:right-8 w-12 h-12 sm:w-16 sm:h-16 bg-[#1B3A2D] rounded-full shadow-[0_20px_40px_-5px_rgba(4,36,25,0.4)] flex items-center justify-center group hover:scale-110 active:scale-95 transition-all z-50 overflow-hidden">
-        <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-[#C8E645] group-hover:rotate-12 transition-transform" />
-        <span className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#6bff8f] rounded-full border-2 border-[#1B3A2D]" />
-      </button>
     </div>
   )
 }

@@ -271,11 +271,11 @@ export default function PipelinePage() {
           label="Todas Origens"
           icon={<Globe className="w-4 h-4" />}
           options={[
-            { value: 'instagram_comment', label: 'Comentário', icon: <div className="w-2 h-2 rounded-full bg-[#C8E645]" />, count: leads.filter(l => l.source === 'instagram_comment').length },
-            { value: 'instagram_story', label: 'Story Reply', icon: <div className="w-2 h-2 rounded-full bg-[#3ECFB2]" />, count: leads.filter(l => l.source === 'instagram_story').length },
-            { value: 'instagram_dm', label: 'DM Direta', icon: <div className="w-2 h-2 rounded-full bg-[#3B82F6]" />, count: leads.filter(l => l.source === 'instagram_dm').length },
-            { value: 'instagram_follow', label: 'Novo Seguidor', icon: <div className="w-2 h-2 rounded-full bg-[#8B5CF6]" />, count: leads.filter(l => l.source === 'instagram_follow').length },
-            { value: 'instagram_like', label: 'Curtida', icon: <div className="w-2 h-2 rounded-full bg-[#EC4899]" />, count: leads.filter(l => l.source === 'instagram_like').length },
+            { value: 'dm_direta', label: 'DM Direta', icon: <div className="w-2 h-2 rounded-full bg-[#3B82F6]" />, count: leads.filter(l => l.source === 'dm_direta').length },
+            { value: 'story_reply', label: 'Story Reply', icon: <div className="w-2 h-2 rounded-full bg-[#3ECFB2]" />, count: leads.filter(l => l.source === 'story_reply').length },
+            { value: 'comentario', label: 'Comentário', icon: <div className="w-2 h-2 rounded-full bg-[#C8E645]" />, count: leads.filter(l => l.source === 'comentario').length },
+            { value: 'curtida', label: 'Curtida', icon: <div className="w-2 h-2 rounded-full bg-[#EC4899]" />, count: leads.filter(l => l.source === 'curtida').length },
+            { value: 'seguidor', label: 'Novo Seguidor', icon: <div className="w-2 h-2 rounded-full bg-[#8B5CF6]" />, count: leads.filter(l => l.source === 'seguidor').length },
             { value: 'manual', label: 'Manual', icon: <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />, count: leads.filter(l => l.source === 'manual').length },
           ]}
           value={filterSource}
@@ -323,7 +323,7 @@ export default function PipelinePage() {
         <div className="flex flex-wrap gap-2 mb-4">
           {filterSource && (
             <span className="flex items-center gap-1 bg-[#C8E645]/15 text-[#5A6B00] text-[12px] font-semibold px-3 py-1 rounded-full">
-              {filterSource.replace('instagram_', '').replace('_', ' ')}
+              {({ dm_direta: 'DM Direta', story_reply: 'Story Reply', comentario: 'Comentário', curtida: 'Curtida', seguidor: 'Seguidor', manual: 'Manual' })[filterSource] || filterSource}
               <button onClick={() => setFilterSource('')}><X className="w-3 h-3" /></button>
             </span>
           )}

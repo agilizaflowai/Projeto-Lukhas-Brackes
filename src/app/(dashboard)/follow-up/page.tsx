@@ -9,6 +9,7 @@ import { DropdownPortal } from '@/components/common/DropdownPortal'
 import {
   RefreshCw, Pause, XCircle, Plus, Pencil, Trash2, X, Eye,
   Bot, User, Settings, Check, ChevronDown, Clock, MessageSquare, ExternalLink,
+  Info, Hand, Quote,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -35,6 +36,23 @@ const CONDITION_OPTIONS = Object.entries(CONDITION_LABELS).map(([value, label]) 
 
 function getConditionLabel(c: string): string {
   return CONDITION_LABELS[c] || c
+}
+
+function groupByCondition(rules: FollowUpRule[]): Record<string, FollowUpRule[]> {
+  const groups: Record<string, FollowUpRule[]> = {}
+  for (const rule of rules) {
+    const key = rule.trigger_condition
+    if (!groups[key]) groups[key] = []
+    groups[key].push(rule)
+  }
+  for (const key in groups) {
+    groups[key].sort((a, b) => a.days_after - b.days_after)
+  }
+  return groups
+}
+
+function cleanTemplate(template: string): string {
+  return template.replace(/^MANUAL:\s*/i, '').trim()
 }
 
 type TabValue = 'leads' | 'rules' | 'history'
@@ -308,7 +326,9 @@ export default function FollowUpPage() {
                               {daysSince !== null && (
                                 <span className={cn(
                                   'inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full',
-                                  daysSince > 7 ? 'bg-[#F59E0B]/10 text-[#D97706]' : 'bg-[#F3F4F6] text-[#6B7280]'
+                                  daysSince >= 14 ? 'bg-[#EF4444]/10 text-[#DC2626]' :
+                                  daysSince >= 7 ? 'bg-[#F59E0B]/10 text-[#D97706]' :
+                                  'bg-[#F3F4F6] text-[#6B7280]'
                                 )}>
                                   <Clock className="w-3 h-3" />
                                   {daysSince}d sem resposta
@@ -349,9 +369,9 @@ export default function FollowUpPage() {
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => { router.push(`/leads/${lead.id}?tab=conversa`) }}
-                                className="px-3 py-1.5 bg-[#C8E645] text-[#1B3A2D] text-[11px] font-bold rounded-full uppercase tracking-[0.04em] shadow-[0_2px_8px_rgba(200,230,69,0.35)] hover:scale-105 active:scale-95 transition-transform"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-[#C8E645] text-[#111827] text-[12px] font-bold rounded-full shadow-[0_2px_8px_rgba(200,230,69,0.3)] hover:-translate-y-px active:scale-95 transition-all"
                               >
-                                Contatar
+                                <MessageSquare className="w-3.5 h-3.5" /> Contatar
                               </button>
                               {isValidInstagramUsername(lead.instagram_username) && (
                                 <a
@@ -421,8 +441,29 @@ export default function FollowUpPage() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {rules.map(rule => (
+              <div className="space-y-6">
+                {/* Info card */}
+                <div className="flex items-start gap-2.5 p-3 bg-[#F7F8F9] rounded-[10px] border border-[#EFEFEF]">
+                  <Info className="w-4 h-4 text-[#9CA3AF] flex-shrink-0 mt-0.5" />
+                  <p className="text-[12px] text-[#6B7280] leading-relaxed">
+                    Todos os follow-ups são tarefas manuais por limitação da API do Instagram (janela de 24h). As tarefas aparecem na página <a href="/tasks" className="font-semibold text-[#7A9E00] hover:underline">Tarefas</a>.
+                  </p>
+                </div>
+
+                {Object.entries(groupByCondition(rules)).map(([condition, conditionRules]) => (
+                  <div key={condition} className="space-y-3">
+                    {/* Group header */}
+                    <div className="flex items-center gap-2 px-1">
+                      <h4 className="text-[12px] font-bold text-[#111827] uppercase tracking-[0.04em]">
+                        {getConditionLabel(condition)}
+                      </h4>
+                      <span className="text-[10px] text-[#9CA3AF]">
+                        {conditionRules.length} {conditionRules.length === 1 ? 'regra' : 'regras'}
+                      </span>
+                      <div className="flex-1 h-px bg-[#F3F4F6]" />
+                    </div>
+
+                    {conditionRules.map(rule => (
                   <div key={rule.id} className="bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.09)] transition-all duration-200 group overflow-hidden">
                     {/* Collapsed header */}
                     <div className="p-5">
@@ -434,14 +475,14 @@ export default function FollowUpPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-[14px] font-bold text-[#111827]">
-                              {getConditionLabel(rule.trigger_condition)}
+                              Dia {rule.days_after}
                             </h3>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] text-[#6B7280]">
-                              Após {rule.days_after} {rule.days_after === 1 ? 'dia' : 'dias'}
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#1B3A2D]/6 text-[#1B3A2D]/70">
+                              <User className="w-2.5 h-2.5" /> Manual
                             </span>
                             {rule.use_testimonial && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#C8E645]/15 text-[#5A6B00]">
-                                Com depoimento
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[#8B5CF6]/15 bg-[#8B5CF6]/5 text-[#7C3AED]">
+                                <Quote className="w-2.5 h-2.5" /> Depoimento
                               </span>
                             )}
                             {!rule.is_active && (
@@ -450,7 +491,7 @@ export default function FollowUpPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-[13px] text-[#6B7280] mt-1 line-clamp-1">{rule.message_template || 'Sem template definido'}</p>
+                          <p className="text-[13px] text-[#6B7280] mt-1 line-clamp-1">{cleanTemplate(rule.message_template) || 'Sem template definido'}</p>
                         </div>
 
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -565,7 +606,7 @@ export default function FollowUpPage() {
                           ) : (
                             <div className="bg-white rounded-[10px] border-[1.5px] border-[#E5E7EB] px-4 py-3">
                               <p className="text-[14px] text-[#374151] leading-relaxed whitespace-pre-wrap">
-                                {rule.message_template || 'Nenhum template definido'}
+                                {cleanTemplate(rule.message_template) || 'Nenhum template definido'}
                               </p>
                             </div>
                           )}
@@ -619,6 +660,8 @@ export default function FollowUpPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                    ))}
                   </div>
                 ))}
               </div>

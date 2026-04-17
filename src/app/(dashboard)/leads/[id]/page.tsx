@@ -36,6 +36,63 @@ const STAGE_OPTIONS: { value: LeadStage; label: string; color: string }[] = [
 
 import { getActivityConfig, getActivityDetail } from '@/lib/activity-config'
 
+function TakeoverTimer({ leadId }: { leadId: string }) {
+  const [minutesAgo, setMinutesAgo] = useState<number | null>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>
+
+    async function loadTime() {
+      const { data } = await supabase
+        .from('activity_log')
+        .select('created_at')
+        .eq('lead_id', leadId)
+        .eq('action', 'human_takeover')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (data) {
+        const mins = Math.floor((Date.now() - new Date(data.created_at).getTime()) / 60000)
+        setMinutesAgo(mins)
+      }
+    }
+
+    loadTime()
+    interval = setInterval(() => {
+      setMinutesAgo(prev => prev !== null ? prev + 1 : null)
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [leadId])
+
+  if (minutesAgo === null) return null
+
+  const isUrgent = minutesAgo >= 25
+  const isWarning = minutesAgo >= 15
+
+  return (
+    <div className={cn(
+      'flex items-center gap-1.5 mt-0.5 text-[11px]',
+      isUrgent ? 'text-[#EF4444] font-semibold' :
+      isWarning ? 'text-[#D97706] font-medium' :
+      'text-[#9CA3AF]',
+    )}>
+      <Clock className="w-3 h-3" />
+      <span>Há {minutesAgo} min</span>
+      {isUrgent && (
+        <span className="inline-flex items-center gap-1 bg-[#EF4444]/10 text-[#DC2626] px-1.5 py-0.5 rounded-full text-[9px] font-bold">
+          IA retoma em breve
+        </span>
+      )}
+      {isWarning && !isUrgent && (
+        <span className="text-[#D97706]">· Timeout em {30 - minutesAgo}min</span>
+      )}
+    </div>
+  )
+}
+
 function getTagStyle(tag: string): string {
   const t = tag.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   if (['emagrecer', 'emagrecimento', 'perder peso'].some(k => t.includes(k))) return 'bg-[#D7F5E1] text-[#006E33]'
@@ -98,6 +155,7 @@ export default function LeadDetailPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [activities, setActivities] = useState<ActivityLog[]>([])
   const [calls, setCalls] = useState<Call[]>([])
+  const [followUpHistory, setFollowUpHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
@@ -137,6 +195,15 @@ export default function LeadDetailPage() {
     if (msgsRes.data) setMessages(msgsRes.data)
     if (actRes.data) setActivities(actRes.data)
     if (callsRes.data) setCalls(callsRes.data)
+
+    supabase
+      .from('follow_up_history')
+      .select('*, rule:follow_up_rules(trigger_condition, days_after)')
+      .eq('lead_id', id)
+      .order('sent_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => setFollowUpHistory(data || []))
+
     setLoading(false)
   }, [id])
 
@@ -347,9 +414,12 @@ export default function LeadDetailPage() {
                 ) : (
                   <>
                     <User className="w-4 h-4 text-[#374151]" />
-                    <span className="text-[13px] font-semibold text-[#374151]">
-                      {lead.assigned_to === 'lukhas' ? 'Lukhas' : profile?.name || 'Assistente'}
-                    </span>
+                    <div className="flex-1">
+                      <span className="text-[13px] font-semibold text-[#374151]">
+                        {lead.assigned_to === 'lukhas' ? 'Lukhas' : profile?.name || 'Assistente'}
+                      </span>
+                      <TakeoverTimer leadId={id as string} />
+                    </div>
                   </>
                 )}
               </div>
@@ -757,7 +827,7 @@ export default function LeadDetailPage() {
             ) : (
               <div className="space-y-4">
                 {activities.map(act => {
-                  const cfg = getActivityConfig(act.action)
+                  const cfg = getActivityConfig(act.action, act.details)
                   const Icon = cfg.icon
                   const description = getActivityDetail(act.action, act.details)
                   return (
@@ -775,6 +845,58 @@ export default function LeadDetailPage() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+
+            {/* Histórico de Follow-ups */}
+            {followUpHistory.length > 0 && (
+              <div className="mt-6 pt-5 border-t border-[#F5F5F5]">
+                <div className="flex items-center gap-2 mb-4">
+                  <RefreshCw className="w-4 h-4 text-[#0891B2]" />
+                  <h4 className="text-[13px] font-bold text-[#111827]">Histórico de Follow-ups</h4>
+                  <span className="text-[11px] text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded-full">{followUpHistory.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {followUpHistory.map((fh: any) => {
+                    const conditionLabels: Record<string, string> = {
+                      sem_resposta: 'Sem resposta',
+                      nao_fechou_call: 'Não fechou call',
+                      lead_frio_seguidor: 'Lead frio (seguidor)',
+                      lead_frio_curtida: 'Lead frio (curtida)',
+                      inativo_7d: 'Inativo 7d',
+                      inativo_14d: 'Inativo 14d',
+                      inativo_30d: 'Inativo 30d',
+                    }
+                    const conditionLabel = fh.rule?.trigger_condition
+                      ? conditionLabels[fh.rule.trigger_condition] || fh.rule.trigger_condition
+                      : 'Manual'
+
+                    return (
+                      <div key={fh.id} className="flex items-start gap-3 px-3 py-3 rounded-[10px] bg-[#F7F8F9] border border-[#EFEFEF]">
+                        <div className="w-8 h-8 rounded-lg bg-[#06B6D4]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <RefreshCw className="w-4 h-4 text-[#0891B2]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] text-[#374151] leading-relaxed line-clamp-2">
+                            {fh.message_sent || 'Tarefa de follow-up criada'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-[10px] font-medium text-[#0891B2] bg-[#06B6D4]/8 px-2 py-0.5 rounded-full">
+                              {conditionLabel}
+                            </span>
+                            {fh.rule?.days_after != null && (
+                              <span className="text-[10px] text-[#9CA3AF]">Dia {fh.rule.days_after}</span>
+                            )}
+                            <span className="text-[#E5E7EB]">·</span>
+                            <span className="text-[10px] text-[#C0C7D0]">
+                              {formatDistanceToNow(new Date(fh.sent_at), { locale: ptBR, addSuffix: true })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>

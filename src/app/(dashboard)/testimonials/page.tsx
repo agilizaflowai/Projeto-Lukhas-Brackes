@@ -6,7 +6,7 @@ import { FilterDropdown } from '@/components/common/FilterDropdown'
 import { DropdownPortal } from '@/components/common/DropdownPortal'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { Plus, Pencil, Trash2, X, Award, Trophy, ChevronDown, Check, Play } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Award, Trophy, ChevronDown, Check, Play, AlertTriangle } from 'lucide-react'
 import type { Testimonial } from '@/lib/types'
 
 function InlineSelect({ value, options, onChange, placeholder = '—', className: wrapClass }: {
@@ -322,7 +322,7 @@ export default function TestimonialsPage() {
             {/* Classification */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">Gênero</label>
+                <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">Gênero <span className="text-[#EF4444]">*</span></label>
                 <InlineSelect
                   value={editing.student_gender || ''}
                   onChange={v => setEditing(p => ({ ...p, student_gender: v || null }))}
@@ -348,7 +348,7 @@ export default function TestimonialsPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">Objetivo</label>
+                <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">Objetivo <span className="text-[#EF4444]">*</span></label>
                 <InlineSelect
                   value={editing.student_goal || ''}
                   onChange={v => setEditing(p => ({ ...p, student_goal: v || null }))}
@@ -361,7 +361,7 @@ export default function TestimonialsPage() {
                 />
               </div>
               <div>
-                <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">Contexto</label>
+                <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">Contexto <span className="text-[11px] font-normal normal-case tracking-normal text-[#7A9E00]">(recomendado pra IA)</span></label>
                 <input value={editing.student_context || ''} onChange={e => setEditing(p => ({ ...p, student_context: e.target.value || null }))} placeholder="mãe, empresária..."
                   className="w-full bg-[#F7F8F9] border-[1.5px] border-[#E5E7EB] rounded-[10px] px-3 py-3 text-[13px] text-[#374151] placeholder-[#C0C7D0] focus:border-[#C8E645] focus:ring-0 focus:outline-none transition-all" />
               </div>
@@ -406,15 +406,25 @@ export default function TestimonialsPage() {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-[#F3F4F6] px-6 py-4 flex gap-3 flex-shrink-0">
-            <button onClick={() => setDialog(false)} className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all">Cancelar</button>
-            <button onClick={handleSave} disabled={saving || !editing.student_name?.trim() || !editing.content?.trim()}
-              className={cn('flex-1 py-3 rounded-full text-[14px] font-bold transition-all',
-                editing.student_name?.trim() && editing.content?.trim()
-                  ? 'bg-[#C8E645] text-[#111827] shadow-[0_4px_14px_rgba(200,230,69,0.35)] hover:-translate-y-px active:scale-[0.98]'
-                  : 'bg-[#F3F4F6] text-[#C0C7D0] cursor-not-allowed')}>
-              {saving ? 'Salvando...' : editing.id ? 'Salvar alterações' : 'Criar depoimento'}
-            </button>
+          <div className="border-t border-[#F3F4F6] px-6 py-4 flex-shrink-0">
+            {!!(editing.student_name?.trim() || editing.content?.trim()) && !(editing.student_gender && editing.student_goal) && (
+              <div className="flex items-start gap-2 mb-3 p-3 bg-[#F59E0B]/5 rounded-[10px] border border-[#F59E0B]/10">
+                <AlertTriangle className="w-4 h-4 text-[#D97706] flex-shrink-0 mt-0.5" />
+                <p className="text-[12px] text-[#D97706] leading-relaxed">
+                  Preencha <strong>gênero</strong> e <strong>objetivo</strong> pra IA conseguir usar este depoimento automaticamente nas conversas com leads de perfil similar.
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => setDialog(false)} className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all">Cancelar</button>
+              <button onClick={handleSave} disabled={saving || !editing.student_name?.trim() || !editing.content?.trim() || !editing.student_gender || !editing.student_goal}
+                className={cn('flex-1 py-3 rounded-full text-[14px] font-bold transition-all',
+                  editing.student_name?.trim() && editing.content?.trim() && editing.student_gender && editing.student_goal
+                    ? 'bg-[#C8E645] text-[#111827] shadow-[0_4px_14px_rgba(200,230,69,0.35)] hover:-translate-y-px active:scale-[0.98]'
+                    : 'bg-[#F3F4F6] text-[#C0C7D0] cursor-not-allowed')}>
+                {saving ? 'Salvando...' : editing.id ? 'Salvar alterações' : 'Criar depoimento'}
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

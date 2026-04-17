@@ -5,10 +5,16 @@ import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/hooks/useProfile'
 import { FilterDropdown } from '@/components/common/FilterDropdown'
 import { cn, getLeadDisplayName, getLeadDisplayUsername } from '@/lib/utils'
-import { Search, ExternalLink, Snowflake, MessageSquare, CheckCircle, Bot, Copy, Eye, EyeOff, Check, Users, UserCheck } from 'lucide-react'
+import {
+  Search, Snowflake, Bot, Copy, Eye, EyeOff, Check, Users,
+  UserCheck, CheckCircle, AlertTriangle, MessageSquare, Pencil,
+} from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { LeadAvatar } from '@/components/common/LeadAvatar'
 import type { Lead } from '@/lib/types'
+
+/* ── helpers ───────────────────────────────────────────── */
 
 function getTagStyle(tag: string): string {
   const t = tag.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -21,12 +27,28 @@ function getTagStyle(tag: string): string {
   return 'bg-[#F3F4F6] text-[#374151]'
 }
 
-function getSugestao(lead: Lead): string {
-  const nome = lead.name?.split(' ')[0] || ''
+function isValidInstagramUsername(u: string | undefined | null): boolean {
+  if (!u) return false
+  return !u.startsWith('ig_') && !/^\d{10,}$/.test(u)
+}
+
+function getSuggestionForLead(lead: Lead): string {
+  const name = lead.name?.split(' ')[0] || ''
+  const bio = (lead.bio || '').toLowerCase()
+
   if (lead.source === 'instagram_like' || lead.source === 'curtida') {
-    return `Oi${nome ? ` ${nome}` : ''}! Vi que curtiu meu conteúdo 😊 Tá treinando atualmente ou querendo começar?`
+    return `Oi${name ? ` ${name}` : ''}! Vi que curtiu meu conteúdo 😊 Tá treinando atualmente ou querendo começar?`
   }
-  return `Oi${nome ? ` ${nome}` : ''}! Obrigado por me seguir 🙌 Vi que você se interessa por fitness. Treina atualmente?`
+  if (bio.includes('fitness') || bio.includes('treino') || bio.includes('crossfit')) {
+    return `Oi${name ? ` ${name}` : ''}! Vi que tu curte fitness também 💪 Treina há quanto tempo?`
+  }
+  if (bio.includes('nutri')) {
+    return `Oi${name ? ` ${name}` : ''}! Vi teu perfil, muito legal! Tu é da área de nutrição? Que demais!`
+  }
+  if (bio.includes('empreend') || bio.includes('empresár') || bio.includes('ceo')) {
+    return `Oi${name ? ` ${name}` : ''}! Vi que tu é empreendedor(a), correria né? Como tá a saúde no meio disso tudo?`
+  }
+  return `Oi${name ? ` ${name}` : ''}! Obrigado por me seguir 🙌 Vi teu perfil e achei muito legal. Treina atualmente?`
 }
 
 const PER_PAGE = 15
@@ -39,8 +61,11 @@ const SOURCE_MAP: Record<string, string> = {
   instagram_dm: 'dm', dm_direta: 'dm',
 }
 
+/* ── page ──────────────────────────────────────────────── */
+
 export default function LeadsFriosPage() {
   const { profile } = useProfile()
+  const router = useRouter()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -49,8 +74,11 @@ export default function LeadsFriosPage() {
   const [filterFollowers, setFilterFollowers] = useState('')
   const [filterSource, setFilterSource] = useState('')
   const [hideAbordados, setHideAbordados] = useState(true)
-  const [expandedSugestao, setExpandedSugestao] = useState<string | null>(null)
-  const [copied, setCopied] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [exitingId, setExitingId] = useState<string | null>(null)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editedTexts, setEditedTexts] = useState<Record<string, string>>({})
   const [abordados, setAbordados] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
 
@@ -69,7 +97,7 @@ export default function LeadsFriosPage() {
 
   useEffect(() => { loadLeads() }, [loadLeads])
 
-  const hasReadableUsername = (u: string) => u && !u.startsWith('ig_') && !/^\d{10,}$/.test(u)
+  /* ── filters ── */
 
   const filtered = leads.filter(l => {
     if (hideAbordados && abordados.has(l.id)) return false
@@ -99,9 +127,30 @@ export default function LeadsFriosPage() {
 
   useEffect(() => { setPage(1) }, [search, filterGender, filterGoal, filterFollowers, filterSource, hideAbordados])
 
-  async function marcarAbordado(leadId: string) {
-    setAbordados(prev => new Set(prev).add(leadId))
-    setExpandedSugestao(null)
+  /* ── actions ── */
+
+  function getLeadSuggestion(lead: Lead): string {
+    return editedTexts[lead.id] || getSuggestionForLead(lead)
+  }
+
+  async function copyAndOpenChat(lead: Lead) {
+    await navigator.clipboard.writeText(getLeadSuggestion(lead))
+    setCopiedId(lead.id)
+
+    setTimeout(() => {
+      setCopiedId(null)
+      router.push(`/leads/${lead.id}?tab=conversa`)
+    }, 800)
+  }
+
+  async function confirmAndMarkApproached(leadId: string) {
+    if (confirmingId !== leadId) {
+      setConfirmingId(leadId)
+      setTimeout(() => setConfirmingId(prev => prev === leadId ? null : prev), 3000)
+      return
+    }
+    setConfirmingId(null)
+    setExitingId(leadId)
 
     await supabase.from('leads').update({
       stage: 'rapport',
@@ -112,18 +161,19 @@ export default function LeadsFriosPage() {
     await supabase.from('activity_log').insert({
       lead_id: leadId,
       action: 'stage_changed',
-      details: { from: 'lead_frio', to: 'rapport', method: 'manual', lead_name: leadForLog?.name || leadForLog?.instagram_username || 'Lead' },
+      details: { from: 'lead_frio', to: 'rapport', method: 'manual_approach', lead_name: leadForLog?.name || leadForLog?.instagram_username || 'Lead' },
       created_by: profile?.name || 'admin',
     })
-  }
 
-  async function copySugestao(lead: Lead) {
-    await navigator.clipboard.writeText(getSugestao(lead))
-    setCopied(lead.id)
-    setTimeout(() => setCopied(null), 2000)
+    setTimeout(() => {
+      setAbordados(prev => new Set(prev).add(leadId))
+      setExitingId(null)
+    }, 400)
   }
 
   const abordadosCount = abordados.size
+
+  /* ── render ──────────────────────────────────────────── */
 
   return (
     <div>
@@ -226,7 +276,7 @@ export default function LeadsFriosPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-24 skeleton-shimmer rounded-[16px]" />)}</div>
+        <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-[180px] skeleton-shimmer rounded-[16px]" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] p-12 text-center">
           <div className="w-16 h-16 rounded-full bg-[#06B6D4]/10 flex items-center justify-center mx-auto mb-4">
@@ -237,41 +287,40 @@ export default function LeadsFriosPage() {
         </div>
       ) : (
         <>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {paginated.map(lead => {
               const isAbordado = abordados.has(lead.id)
-              const readable = hasReadableUsername(lead.instagram_username)
+              const isExiting = exitingId === lead.id
+              const isCopied = copiedId === lead.id
+              const hasValidUsername = isValidInstagramUsername(lead.instagram_username)
               const displayName = getLeadDisplayName(lead)
               const displayUsername = getLeadDisplayUsername(lead)
-              const initials = displayName.replace('@', '').slice(0, 2).toUpperCase()
-              const normalizedSource = SOURCE_MAP[lead.source || ''] || lead.source
-              const isCurtida = normalizedSource === 'curtida'
+              const suggestion = getSuggestionForLead(lead)
 
               return (
                 <div
                   key={lead.id}
                   className={cn(
-                    'bg-white rounded-[16px] border border-[#EFEFEF] p-5',
+                    'bg-white rounded-[16px] border border-[#EFEFEF] overflow-hidden',
                     'shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)]',
-                    'hover:shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.09)]',
-                    'transition-all duration-200',
+                    'transition-all duration-300',
+                    isExiting && 'opacity-0 translate-x-4 scale-[0.98]',
                     isAbordado && 'opacity-50',
                   )}
                 >
-                  <div className="flex items-center gap-4">
-                    {/* Avatar — clickable */}
+                  {/* Header: lead info */}
+                  <div className="flex items-center gap-4 p-5 pb-3">
                     <Link href={`/leads/${lead.id}`} className="flex-shrink-0">
-                      <LeadAvatar name={lead.name} username={lead.instagram_username} photoUrl={lead.profile_pic_url} size="lg" className="hover:ring-2 hover:ring-[#C8E645]/30 transition-all" />
+                      <LeadAvatar name={lead.name} username={lead.instagram_username} photoUrl={lead.profile_pic_url} size="md" className="hover:ring-2 hover:ring-[#C8E645]/30 transition-all" />
                     </Link>
 
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Link href={`/leads/${lead.id}`} className={cn('text-[14px] font-bold text-[#111827] truncate hover:underline', isAbordado && 'line-through')}>
+                        <Link href={`/leads/${lead.id}`} className="text-[14px] font-bold text-[#111827] truncate hover:underline">
                           {displayName}
                         </Link>
-                        {displayUsername && (
-                          <span className="text-[12px] text-[#9CA3AF] flex-shrink-0">{displayUsername}</span>
+                        {hasValidUsername && displayUsername && (
+                          <span className="text-[11px] text-[#9CA3AF] flex-shrink-0">{displayUsername}</span>
                         )}
                         {isAbordado && (
                           <span className="text-[10px] font-bold text-[#059669] bg-[#10B981]/10 px-2 py-0.5 rounded-full flex-shrink-0">ABORDADO</span>
@@ -279,10 +328,9 @@ export default function LeadsFriosPage() {
                       </div>
 
                       {lead.bio && (
-                        <p className="text-[13px] text-[#6B7280] mt-0.5 line-clamp-1">{lead.bio}</p>
+                        <p className="text-[12px] text-[#6B7280] truncate mt-0.5">{lead.bio}</p>
                       )}
 
-                      {/* Metadata pills */}
                       <div className="flex items-center flex-wrap gap-1.5 mt-1.5">
                         {lead.follower_count != null && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
@@ -294,74 +342,112 @@ export default function LeadsFriosPage() {
                         )}
                         {lead.follows_lukhas ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#059669] bg-[#10B981]/10 px-2 py-0.5 rounded-full">
-                            <UserCheck className="w-3 h-3" />
-                            Te segue
+                            <UserCheck className="w-3 h-3" /> Te segue
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
                             Não te segue
                           </span>
                         )}
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {!isAbordado ? (
-                        <>
-                          <button
-                            onClick={() => setExpandedSugestao(expandedSugestao === lead.id ? null : lead.id)}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#C8E645] text-[#111827] text-[12px] font-bold rounded-full shadow-[0_2px_8px_rgba(200,230,69,0.3)] hover:-translate-y-px active:scale-95 transition-all"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            Msg sugerida
-                          </button>
-                          {readable && (
-                            <a
-                              href={`https://instagram.com/${lead.instagram_username}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 px-4 py-2 border border-[#E5E7EB] text-[#9CA3AF] text-[12px] font-medium rounded-full hover:bg-[#F3F4F6] hover:text-[#374151] transition-all"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              Instagram
-                            </a>
-                          )}
-                          <button
-                            onClick={() => marcarAbordado(lead.id)}
-                            className="flex items-center gap-2 px-4 py-2 border border-[#E5E7EB] text-[#6B7280] text-[12px] font-semibold rounded-full hover:bg-[#10B981]/5 hover:border-[#10B981]/30 hover:text-[#059669] active:scale-95 transition-all"
-                          >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            Já abordei
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-[12px] text-[#9CA3AF] italic">Abordado</span>
-                      )}
-                    </div>
                   </div>
 
-                  {/* Sugestão expandida */}
-                  {expandedSugestao === lead.id && !isAbordado && (
-                    <div className="mt-4 pt-4 border-t border-[#F3F4F6] animate-dropdown-in">
-                      <div className="bg-[#F7F8F9] rounded-[12px] p-4 border border-[#EFEFEF]">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-5 h-5 rounded-md bg-[#C8E645]/20 flex items-center justify-center">
-                            <Bot className="w-3 h-3 text-[#7A9E00]" />
+                  {/* Sugestão da IA — SEMPRE visível */}
+                  {!isAbordado && (
+                    <div className="mx-5 mb-3">
+                      <div className="bg-[#F7F8F9] rounded-[12px] border border-[#EFEFEF] p-4">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <div className="w-4 h-4 rounded bg-[#C8E645]/20 flex items-center justify-center">
+                            <Bot className="w-2.5 h-2.5 text-[#7A9E00]" />
                           </div>
-                          <span className="text-[11px] font-bold text-[#7A9E00]">SUGESTÃO DA IA</span>
+                          <span className="text-[10px] font-bold text-[#7A9E00] uppercase tracking-[0.04em]">Sugestão da IA</span>
                         </div>
-                        <p className="text-[14px] text-[#374151] leading-relaxed mb-3">
-                          {getSugestao(lead)}
-                        </p>
-                        <button
-                          onClick={() => copySugestao(lead)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#C8E645] text-[#111827] text-[12px] font-bold rounded-full hover:bg-[#AECF1E] active:scale-95 transition-all"
-                        >
-                          {copied === lead.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                          {copied === lead.id ? 'Copiado!' : 'Copiar texto'}
-                        </button>
+                        {editingId === lead.id ? (
+                          <textarea
+                            value={editedTexts[lead.id] || suggestion}
+                            onChange={e => setEditedTexts(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                            className="w-full text-[13px] text-[#374151] leading-relaxed bg-white border border-[#EFEFEF] rounded-[8px] p-3 focus:outline-none focus:border-[#C8E645] focus:ring-2 focus:ring-[#C8E645]/20 resize-none transition-all"
+                            rows={3}
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="text-[13px] text-[#374151] leading-relaxed">{suggestion}</p>
+                        )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Aviso: sem username válido */}
+                  {!isAbordado && !hasValidUsername && (
+                    <div className="mx-5 mb-3 flex items-center gap-2 px-3 py-2 bg-[#F59E0B]/5 rounded-[10px] border border-[#F59E0B]/10">
+                      <AlertTriangle className="w-3.5 h-3.5 text-[#D97706] flex-shrink-0" />
+                      <p className="text-[11px] text-[#D97706]">
+                        Perfil não identificado — abordagem só é possível se encontrar o @ manualmente
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Ações */}
+                  {!isAbordado && (
+                    <div className="flex items-center gap-2 px-5 py-3 bg-[#FAFBFC] border-t border-[#F5F5F5]">
+                      <button
+                        onClick={() => copyAndOpenChat(lead)}
+                        className={cn(
+                          'flex items-center gap-1.5 px-4 py-2 rounded-full text-[12px] font-bold transition-all active:scale-95',
+                          isCopied
+                            ? 'bg-[#10B981] text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)]'
+                            : 'bg-[#C8E645] text-[#111827] shadow-[0_2px_8px_rgba(200,230,69,0.3)] hover:-translate-y-px',
+                        )}
+                      >
+                        {isCopied ? (
+                          <><Check className="w-3.5 h-3.5" /> Copiado! Abrindo chat...</>
+                        ) : (
+                          <><MessageSquare className="w-3.5 h-3.5" /> Copiar e abrir chat</>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (editingId === lead.id) {
+                            setEditingId(null)
+                          } else {
+                            if (!editedTexts[lead.id]) {
+                              setEditedTexts(prev => ({ ...prev, [lead.id]: suggestion }))
+                            }
+                            setEditingId(lead.id)
+                          }
+                        }}
+                        className={cn(
+                          'flex items-center gap-1.5 px-3.5 py-2 border text-[12px] font-semibold rounded-full active:scale-95 transition-all',
+                          editingId === lead.id
+                            ? 'bg-[#C8E645]/10 border-[#C8E645]/30 text-[#3D4F00]'
+                            : 'border-[#E5E7EB] text-[#374151] hover:bg-[#F3F4F6] hover:text-[#111827]',
+                        )}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        {editingId === lead.id ? 'Pronto' : 'Editar msg'}
+                      </button>
+
+                      <button
+                        onClick={() => confirmAndMarkApproached(lead.id)}
+                        className={cn(
+                          'flex items-center gap-1.5 px-3.5 py-2 border text-[12px] font-semibold rounded-full active:scale-95 transition-all',
+                          confirmingId === lead.id
+                            ? 'bg-[#10B981] border-[#10B981] text-white'
+                            : 'border-[#E5E7EB] text-[#374151] hover:bg-[#10B981]/5 hover:border-[#10B981]/30 hover:text-[#059669]',
+                        )}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        {confirmingId === lead.id ? 'Confirmar?' : 'Já abordei'}
+                      </button>
+
+                      <Link
+                        href={`/leads/${lead.id}`}
+                        className="ml-auto flex items-center gap-1.5 px-3.5 py-2 border border-[#E5E7EB] text-[#6B7280] text-[12px] font-medium rounded-full hover:bg-[#F3F4F6] hover:text-[#111827] transition-all"
+                      >
+                        Ver ficha &rarr;
+                      </Link>
                     </div>
                   )}
                 </div>

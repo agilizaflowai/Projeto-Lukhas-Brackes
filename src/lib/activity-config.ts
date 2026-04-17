@@ -3,6 +3,7 @@ import {
   UserPlus, ArrowRight, MessageSquare, CheckCircle, XCircle,
   Phone, PhoneCall, RefreshCcw, User, StickyNote, Info,
   Bot, Send, Sparkles, Tag, BarChart3, Clock, CheckSquare, Search,
+  AlertTriangle, MessageCircle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -49,6 +50,9 @@ const ACTIVITY_MAP: Record<string, ActivityConfig> = {
   human_takeover:      { badge: 'ASSUMIDO',  badgeColor: 'bg-[#1B3A2D]/10 text-[#1B3A2D]', icon: User },
   note_added:          { badge: 'NOTA',      badgeColor: 'bg-[#F59E0B]/10 text-[#D97706]', icon: StickyNote },
 
+  // Instagram
+  comment_received:    { badge: 'COMENTÁRIO', badgeColor: 'bg-[#EC4899]/10 text-[#DB2777]', icon: MessageCircle },
+
   // System
   task_created:        { badge: 'TAREFA',    badgeColor: 'bg-[#6366F1]/10 text-[#4F46E5]', icon: CheckSquare },
   profile_scraped:     { badge: 'SCRAPING',  badgeColor: 'bg-[#8B5CF6]/10 text-[#7C3AED]', icon: Search },
@@ -73,14 +77,35 @@ function translateAction(action: string): string {
     .replace(/^\w/, c => c.toUpperCase())
 }
 
-export function getActivityConfig(action: string): ActivityConfig {
-  if (ACTIVITY_MAP[action]) return ACTIVITY_MAP[action]
-  const label = translateAction(action)
-  return {
-    badge: label.slice(0, 8).toUpperCase(),
-    badgeColor: 'bg-[#6B7280]/10 text-[#4B5563]',
-    icon: Info,
+export function getActivityConfig(action: string, details?: any): ActivityConfig {
+  let config = ACTIVITY_MAP[action]
+
+  if (!config) {
+    const label = translateAction(action)
+    return {
+      badge: label.slice(0, 8).toUpperCase(),
+      badgeColor: 'bg-[#6B7280]/10 text-[#4B5563]',
+      icon: Info,
+    }
   }
+
+  if (details) {
+    if (action === 'human_takeover') {
+      if (details.returned_to === 'ia' || (typeof details.reason === 'string' && details.reason.toLowerCase().includes('timeout'))) {
+        config = { badge: 'TIMEOUT', badgeColor: 'bg-[#6B7280]/10 text-[#4B5563]', icon: Clock }
+      } else if (details.requested_by === 'ia' || (details.reason && !details.taken_by)) {
+        config = { badge: 'ALERTA', badgeColor: 'bg-[#F59E0B]/10 text-[#D97706]', icon: AlertTriangle }
+      }
+    }
+    if (action === 'note_added' && details.created_by === 'ia') {
+      config = { badge: 'IA', badgeColor: 'bg-[#C8E645]/15 text-[#5A6B00]', icon: Bot }
+    }
+    if (action === 'follow_up_sent' && details.type === 'manual_task') {
+      config = { badge: 'TAREFA', badgeColor: 'bg-[#6366F1]/10 text-[#4F46E5]', icon: CheckSquare }
+    }
+  }
+
+  return config
 }
 
 export function getActivityDetail(action: string, details: any): string {
@@ -128,23 +153,43 @@ export function getActivityDetail(action: string, details: any): string {
       return `Call realizada${details?.duration_minutes ? ` · ${details.duration_minutes} min` : ''}`
     case 'call_analyzed':
       return `Score: ${details?.score ?? '?'}/10`
-    case 'follow_up_sent':
-      return `Follow-up${details?.follow_up_count ? ` #${details.follow_up_count}` : ''} enviado`
+    case 'follow_up_sent': {
+      if (details?.type === 'manual_task') {
+        return 'Tarefa de follow-up criada pelo sistema'
+      }
+      return `Follow-up${details?.follow_up_count ? ` #${details.follow_up_count}` : ''} processado`
+    }
     case 'follow_up_scheduled':
       return 'Follow-up agendado'
     case 'human_takeover': {
-      const raw = details?.taken_by || details?.new_assigned || 'Admin'
+      // Timeout — devolvido pra IA
+      if (details?.returned_to === 'ia' || (typeof details?.reason === 'string' && details.reason.toLowerCase().includes('timeout'))) {
+        return 'Devolvido pra IA (timeout 30min sem resposta)'
+      }
+      // IA pediu atendimento humano (reason presente mas sem taken_by, ou requested_by)
+      if (details?.requested_by === 'ia' || (details?.reason && !details?.taken_by)) {
+        return `IA solicitou atendimento · ${details.reason}`
+      }
+      // Humano assumiu manualmente
+      const raw = details?.taken_by || details?.new_assigned || 'Lukhas'
       const who = raw.toLowerCase() === 'ia' ? 'IA' : raw
       return `${who} assumiu a conversa`
     }
     case 'note_added': {
-      const preview = details?.note?.slice(0, 40)
-      return preview ? `Nota: "${preview}${details.note.length > 40 ? '...' : ''}"` : 'Nota adicionada'
+      const notePreview = details?.note?.slice(0, 50)
+      if (details?.created_by === 'ia') {
+        return notePreview ? `IA: "${notePreview}${details.note.length > 50 ? '...' : ''}"` : 'IA adicionou observação'
+      }
+      return notePreview ? `Nota: "${notePreview}${details.note?.length > 50 ? '...' : ''}"` : 'Nota adicionada'
     }
     case 'task_created':
       return 'Nova tarefa criada'
     case 'profile_scraped':
       return 'Dados do perfil coletados'
+    case 'comment_received': {
+      const comment = details?.comment_text?.slice(0, 50)
+      return comment ? `Comentou: "${comment}${details.comment_text.length > 50 ? '...' : ''}"` : 'Comentou em uma publicação'
+    }
     default:
       return translateAction(action)
   }
@@ -171,12 +216,22 @@ export function getActivityDescription(action: string, details: any, leadName?: 
       return `${approver} aprovou mensagem para ${name}`
     }
     case 'human_takeover': {
+      if (details?.returned_to === 'ia' || (typeof details?.reason === 'string' && details.reason.toLowerCase().includes('timeout'))) {
+        return `${name} devolvido pra IA (timeout 30min sem resposta)`
+      }
+      if (details?.requested_by === 'ia' || (details?.reason && !details?.taken_by)) {
+        return `IA solicitou atendimento para ${name} · ${details.reason}`
+      }
       const raw = details?.taken_by || details?.new_assigned || 'Lukhas'
       const who = raw.toLowerCase() === 'ia' ? 'IA' : raw
       return `${who} assumiu a conversa com ${name}`
     }
-    case 'follow_up_sent':
-      return `Follow-up${details?.follow_up_count ? ` #${details.follow_up_count}` : ''} enviado para ${name}`
+    case 'follow_up_sent': {
+      if (details?.type === 'manual_task') {
+        return `Tarefa de follow-up criada para ${name}`
+      }
+      return `Follow-up${details?.follow_up_count ? ` #${details.follow_up_count}` : ''} processado para ${name}`
+    }
     case 'call_scheduled': {
       if (details?.scheduled_at) {
         try {
@@ -187,8 +242,15 @@ export function getActivityDescription(action: string, details: any, leadName?: 
       return `Call agendada com ${name}`
     }
     case 'note_added': {
-      const preview = details?.note?.slice(0, 40)
-      return preview ? `Nota: "${preview}${details.note.length > 40 ? '...' : ''}"` : `Nota adicionada em ${name}`
+      const preview = details?.note?.slice(0, 50)
+      if (details?.created_by === 'ia') {
+        return preview ? `IA observou sobre ${name}: "${preview}${details.note.length > 50 ? '...' : ''}"` : `IA adicionou observação sobre ${name}`
+      }
+      return preview ? `Nota sobre ${name}: "${preview}${details.note?.length > 50 ? '...' : ''}"` : `Nota adicionada em ${name}`
+    }
+    case 'comment_received': {
+      const comment = details?.comment_text?.slice(0, 50)
+      return comment ? `${name} comentou: "${comment}${details.comment_text.length > 50 ? '...' : ''}"` : `${name} comentou em uma publicação`
     }
     default:
       return `${name} — ${detail}`
