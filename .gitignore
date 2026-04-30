@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude / agents
+.agents/
+.playwright-mcp/
+skills-lock.json
+
+# audit screenshots e docs temporários
+audit-*.png
+dashboard-*.png
+agiliza-flow-frontend-doc.md
+plano-integracao-frontend-backend.md
+workflow-send-approved-implementacao.md
+screenshots/

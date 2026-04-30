@@ -41,6 +41,7 @@ export interface Lead {
   next_follow_up_at: string | null
   follow_up_count: number
   is_active: boolean
+  is_blocked?: boolean
   created_at: string
   updated_at: string
 }

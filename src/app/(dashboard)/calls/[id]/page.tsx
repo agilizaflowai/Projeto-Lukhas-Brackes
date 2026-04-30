@@ -1,19 +1,27 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn, getLeadDisplayName } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   ArrowLeft, ArrowUpRight, FileText, ThumbsUp, AlertTriangle, ShieldAlert,
-  XCircle, Bot,
+  XCircle, Bot, Link2, Pencil, Search, Check, X, Loader2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { LeadAvatar } from '@/components/common/LeadAvatar'
 import type { Call, CallResult } from '@/lib/types'
+
+interface LeadSearchResult {
+  id: string
+  name: string | null
+  instagram_username: string | null
+  profile_pic_url: string | null
+}
 
 function getInitials(name?: string | null): string {
   if (!name) return 'L'
@@ -21,6 +29,7 @@ function getInitials(name?: string | null): string {
 }
 
 interface TranscriptLine {
+  time: string
   speaker: string
   text: string
 }
@@ -30,13 +39,26 @@ function parseTranscript(raw: string): TranscriptLine[] {
   for (const line of raw.split('\n')) {
     const trimmed = line.trim()
     if (!trimmed) continue
-    const match = trimmed.match(/^([^:]+):\s*(.+)$/)
-    if (match) {
-      lines.push({ speaker: match[1].trim(), text: match[2].trim() })
-    } else if (lines.length > 0) {
+
+    // Tactiq format: [00:01:23] Speaker: texto
+    const tactiqMatch = trimmed.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*(.+?):\s*(.+)/)
+    if (tactiqMatch) {
+      lines.push({ time: tactiqMatch[1], speaker: tactiqMatch[2].trim(), text: tactiqMatch[3].trim() })
+      continue
+    }
+
+    // Simple format: Speaker: texto
+    const simpleMatch = trimmed.match(/^([^:]+):\s*(.+)$/)
+    if (simpleMatch) {
+      lines.push({ time: '', speaker: simpleMatch[1].trim(), text: simpleMatch[2].trim() })
+      continue
+    }
+
+    // Continuation line
+    if (lines.length > 0) {
       lines[lines.length - 1].text += ' ' + trimmed
     } else {
-      lines.push({ speaker: 'Desconhecido', text: trimmed })
+      lines.push({ time: '', speaker: 'Desconhecido', text: trimmed })
     }
   }
   return lines
@@ -72,6 +94,24 @@ export default function CallDetailPage() {
   const [notes, setNotes] = useState('')
   const [savingResult, setSavingResult] = useState(false)
 
+  // Vincular lead — dialog de busca
+  const [linkDialog, setLinkDialog] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<LeadSearchResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null)
+  const [linking, setLinking] = useState(false)
+
+  // Toast simples (mesmo padrão já usado em outras páginas)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showToast = (type: 'success' | 'error', message: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    setToast({ type, message })
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 3000)
+  }
+  useEffect(() => () => { if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current) }, [])
+
   const fetchCall = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
@@ -101,6 +141,60 @@ export default function CallDetailPage() {
     if (!call) return
     const supabase = createClient()
     await supabase.from('calls').update({ notes }).eq('id', call.id)
+  }
+
+  function openLinkDialog() {
+    setSelectedLeadId(call?.lead?.id || null)
+    setSearchQuery('')
+    setSearchResults([])
+    setLinkDialog(true)
+  }
+  function closeLinkDialog() {
+    setLinkDialog(false)
+    setSearchQuery('')
+    setSearchResults([])
+    setSelectedLeadId(null)
+  }
+
+  // Debounce de 300ms na busca de leads — dispara apenas quando o dialog está aberto.
+  // setState só dentro do callback async (dentro do setTimeout) pra não violar react-hooks/set-state-in-effect.
+  useEffect(() => {
+    if (!linkDialog) return
+    // Sanitiza metacaracteres do PostgREST (.or usa vírgula/parênteses como separadores)
+    const sanitized = searchQuery.trim().replace(/[,()]/g, '').trim()
+    if (!sanitized) return
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('leads')
+          .select('id, name, instagram_username, profile_pic_url')
+          .or(`name.ilike.%${sanitized}%,instagram_username.ilike.%${sanitized}%`)
+          .limit(5)
+        if (!error && data) setSearchResults(data as LeadSearchResult[])
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery, linkDialog])
+
+  async function handleLinkLead() {
+    if (!call || !selectedLeadId || linking) return
+    setLinking(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('calls').update({ lead_id: selectedLeadId }).eq('id', call.id)
+    setLinking(false)
+    if (error) {
+      const e = error as unknown as { message?: string; details?: string; hint?: string; code?: string }
+      console.error('Erro ao vincular lead:', { message: e.message, code: e.code, details: e.details, hint: e.hint })
+      showToast('error', 'Erro ao vincular: ' + (e.message || e.details || 'tente novamente'))
+      return
+    }
+    closeLinkDialog()
+    await fetchCall() // recarrega a call com o lead vinculado
+    showToast('success', 'Lead vinculado com sucesso')
   }
 
   if (loading) {
@@ -160,19 +254,42 @@ export default function CallDetailPage() {
           {/* Header */}
           <div className="px-6 py-5 border-b border-[#F3F4F6]">
             <div className="flex items-center gap-4 flex-wrap">
-              <LeadAvatar name={call.lead?.name || null} username={call.lead?.instagram_username} photoUrl={call.lead?.profile_pic_url || null} size="xl" className="ring-[3px] ring-[#C8E645]/20" />
+              <LeadAvatar name={call.lead?.name || null} username={call.lead?.instagram_username} photoUrl={call.lead?.profile_pic_url || null} size="xl" className={cn('ring-[3px]', call.lead ? 'ring-[#C8E645]/20' : 'ring-[#F3F4F6]')} />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-[20px] font-bold text-[#111827]">{call.lead ? getLeadDisplayName(call.lead) : 'Lead'}</h2>
-                  {call.lead?.id && (
-                    <Link
-                      href={`/leads/${call.lead.id}`}
-                      onClick={e => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#1B3A2D] bg-[#C8E645]/15 px-2.5 py-1 rounded-full hover:bg-[#C8E645]/25 transition-all ml-1"
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className={cn(
+                    'text-[20px] font-bold',
+                    call.lead ? 'text-[#111827]' : 'text-[#9CA3AF] italic',
+                  )}>
+                    {call.lead ? getLeadDisplayName(call.lead) : 'Lead não identificado'}
+                  </h2>
+                  {call.lead?.id ? (
+                    <>
+                      <Link
+                        href={`/leads/${call.lead.id}`}
+                        onClick={e => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#1B3A2D] bg-[#C8E645]/15 px-2.5 py-1 rounded-full hover:bg-[#C8E645]/25 transition-all ml-1"
+                      >
+                        Ver ficha
+                        <ArrowUpRight className="w-3 h-3" />
+                      </Link>
+                      <button
+                        onClick={openLinkDialog}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-[#6B7280] hover:text-[#111827] bg-transparent hover:bg-[#F3F4F6] px-2.5 py-1 rounded-full transition-colors"
+                        title="Trocar o lead vinculado a esta call"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Alterar
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={openLinkDialog}
+                      className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#111827] bg-[#C8E645] px-3 py-1.5 rounded-full shadow-[0_2px_8px_rgba(200,230,69,0.35)] hover:-translate-y-px active:scale-95 transition-all ml-1"
                     >
-                      Ver ficha
-                      <ArrowUpRight className="w-3 h-3" />
-                    </Link>
+                      <Link2 className="w-3.5 h-3.5" />
+                      Vincular Lead
+                    </button>
                   )}
                 </div>
                 <p className="text-[13px] text-[#9CA3AF] mt-0.5">
@@ -226,18 +343,26 @@ export default function CallDetailPage() {
             <h3 className="text-[14px] font-bold text-[#111827] mb-4">Transcrição</h3>
 
             {call.transcript ? (
-              <div className="space-y-4">
-                {parseTranscript(call.transcript).map((line, i) => (
-                  <div key={i} className="flex gap-3">
-                    <span className={cn(
-                      'text-[12px] font-bold w-[70px] flex-shrink-0 pt-0.5',
-                      line.speaker === 'Lukhas' ? 'text-[#1B3A2D]' : 'text-[#6B7280]'
-                    )}>
-                      {line.speaker}:
-                    </span>
-                    <p className="text-[14px] text-[#374151] leading-relaxed flex-1">{line.text}</p>
-                  </div>
-                ))}
+              <div className="space-y-1">
+                {parseTranscript(call.transcript).map((line, i) => {
+                  const isLukhas = line.speaker.toLowerCase().includes('lukhas')
+                  return (
+                    <div key={i} className="flex gap-3 py-2 hover:bg-[#FAFBFC] px-2 -mx-2 rounded-lg transition-colors">
+                      {line.time && (
+                        <span className="text-[11px] text-[#C0C7D0] font-mono w-[60px] flex-shrink-0 pt-0.5">
+                          {line.time}
+                        </span>
+                      )}
+                      <span className={cn(
+                        'text-[12px] font-bold w-[70px] flex-shrink-0 pt-0.5',
+                        isLukhas ? 'text-[#1B3A2D]' : 'text-[#6B7280]'
+                      )}>
+                        {line.speaker}:
+                      </span>
+                      <p className="text-[13px] text-[#374151] leading-relaxed flex-1">{line.text}</p>
+                    </div>
+                  )
+                })}
               </div>
             ) : (
               <div className="text-center py-8">
@@ -259,7 +384,7 @@ export default function CallDetailPage() {
                 <div className={cn(
                   'text-[48px] font-extrabold tracking-tight',
                   call.ai_analysis.score >= 7 ? 'text-[#10B981]'
-                    : call.ai_analysis.score >= 4 ? 'text-[#F59E0B]'
+                    : call.ai_analysis.score >= 5 ? 'text-[#F59E0B]'
                     : 'text-[#EF4444]'
                 )}>
                   {call.ai_analysis.score}
@@ -270,7 +395,7 @@ export default function CallDetailPage() {
                     className={cn(
                       'h-full rounded-full transition-all duration-700',
                       call.ai_analysis.score >= 7 ? 'bg-[#10B981]'
-                        : call.ai_analysis.score >= 4 ? 'bg-[#F59E0B]'
+                        : call.ai_analysis.score >= 5 ? 'bg-[#F59E0B]'
                         : 'bg-[#EF4444]'
                     )}
                     style={{ width: `${call.ai_analysis.score * 10}%` }}
@@ -368,6 +493,129 @@ export default function CallDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Dialog: Vincular / alterar lead */}
+      <Dialog open={linkDialog} onOpenChange={open => { if (!open) closeLinkDialog() }}>
+        <DialogContent className={cn('[&>button]:hidden bg-white rounded-[20px] p-0 overflow-hidden w-[calc(100vw-32px)] max-w-[480px] max-h-[calc(100vh-48px)] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.15)]')}>
+          <div className="flex items-start justify-between px-6 pt-6 pb-4 flex-shrink-0">
+            <div>
+              <h3 className="text-[18px] font-bold text-[#111827]">
+                {call.lead ? 'Alterar lead vinculado' : 'Vincular Lead'}
+              </h3>
+              <p className="text-[13px] text-[#6B7280] mt-1">
+                Busque por nome ou @username
+              </p>
+            </div>
+            <button onClick={closeLinkDialog} className="w-8 h-8 rounded-full hover:bg-[#F3F4F6] flex items-center justify-center transition-colors">
+              <X className="w-4 h-4 text-[#9CA3AF]" />
+            </button>
+          </div>
+
+          <div className="px-6 pb-2 flex-shrink-0">
+            <div className="flex items-center bg-[#F7F8F9] border-[1.5px] border-[#E5E7EB] focus-within:border-[#C8E645] focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(200,230,69,0.12)] rounded-full px-4 py-2.5 transition-all">
+              <Search className="w-4 h-4 text-[#9CA3AF] flex-shrink-0" />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nome ou @username"
+                className="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] text-[#374151] placeholder-[#C0C7D0] ml-2 py-0 min-w-0"
+              />
+              {searching && <Loader2 className="w-4 h-4 text-[#C0C7D0] animate-spin flex-shrink-0" />}
+            </div>
+          </div>
+
+          <div className="overflow-y-auto flex-1 min-h-0 dropdown-scroll px-3 py-2">
+            {searchQuery.trim() === '' ? (
+              <div className="text-center py-10">
+                <div className="w-12 h-12 rounded-full bg-[#F7F8F9] flex items-center justify-center mx-auto mb-2">
+                  <Search className="w-5 h-5 text-[#C0C7D0]" />
+                </div>
+                <p className="text-[13px] text-[#9CA3AF]">Digite para buscar leads</p>
+              </div>
+            ) : !searching && searchResults.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-[13px] text-[#9CA3AF]">Nenhum lead encontrado</p>
+                <p className="text-[11px] text-[#C0C7D0] mt-1">Tente outro termo</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {searchResults.map(lead => {
+                  const selected = selectedLeadId === lead.id
+                  const display = getLeadDisplayName(lead)
+                  return (
+                    <button
+                      key={lead.id}
+                      onClick={() => setSelectedLeadId(lead.id)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-[12px] text-left transition-all',
+                        selected
+                          ? 'bg-[#C8E645]/10 ring-1 ring-[#C8E645]/30'
+                          : 'hover:bg-[#F7F8F9]',
+                      )}
+                    >
+                      <LeadAvatar name={lead.name} username={lead.instagram_username} photoUrl={lead.profile_pic_url} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn('text-[13px] font-semibold truncate', selected ? 'text-[#111827]' : 'text-[#111827]')}>
+                          {display}
+                        </p>
+                        {lead.instagram_username && (
+                          <p className="text-[11px] text-[#9CA3AF] truncate">@{lead.instagram_username}</p>
+                        )}
+                      </div>
+                      {selected && (
+                        <div className="w-5 h-5 rounded-full bg-[#C8E645] flex items-center justify-center flex-shrink-0">
+                          <Check className="w-3 h-3 text-[#111827]" />
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-[#F3F4F6] px-6 py-4 flex gap-3 flex-shrink-0">
+            <button
+              onClick={closeLinkDialog}
+              disabled={linking}
+              className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleLinkLead}
+              disabled={!selectedLeadId || selectedLeadId === call.lead?.id || linking}
+              className={cn(
+                'flex-1 py-3 rounded-full text-[14px] font-bold transition-all flex items-center justify-center gap-2',
+                selectedLeadId && selectedLeadId !== call.lead?.id && !linking
+                  ? 'bg-[#C8E645] text-[#111827] shadow-[0_4px_14px_rgba(200,230,69,0.35)] hover:-translate-y-px active:scale-[0.98]'
+                  : 'bg-[#F3F4F6] text-[#C0C7D0] cursor-not-allowed',
+              )}
+            >
+              {linking ? <><Loader2 className="w-4 h-4 animate-spin" /> Vinculando...</> : 'Vincular'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            'fixed bottom-6 right-6 flex items-start gap-2 text-white text-[13px] font-medium px-4 py-3 rounded-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.2)] animate-dropdown-in z-50 max-w-[380px]',
+            toast.type === 'error' ? 'bg-[#EF4444]' : 'bg-[#111827]',
+          )}
+        >
+          {toast.type === 'error'
+            ? <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            : <Check className="w-4 h-4 text-[#C8E645] flex-shrink-0 mt-0.5" />
+          }
+          <span className="flex-1 leading-relaxed">{toast.message}</span>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,11 +8,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { InlineDatePicker } from '@/components/common/InlineDatePicker'
 import { DropdownPortal } from '@/components/common/DropdownPortal'
-import { cn } from '@/lib/utils'
+import { cn, sendApprovedMessage } from '@/lib/utils'
 import {
   ExternalLink, UserCheck, Bot, Send, Calendar, StickyNote,
   RefreshCw, ArrowRight, MessageSquare, Clock, Phone, User,
   X, Plus, Check, ChevronDown, Smile, Mic, Download, Loader2, XCircle,
+  Pencil, Info, MoreVertical, ShieldOff, ShieldCheck, AlertTriangle,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -164,6 +165,12 @@ export default function LeadDetailPage() {
   const initialTab = searchParams.get('tab') as 'conversa' | 'atividade' | 'calls' | null
   const [activeTab, setActiveTab] = useState<'conversa' | 'atividade' | 'calls'>(initialTab || 'conversa')
 
+  // Edição inline de mensagem pendente e correção de mensagem da IA já enviada
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [correctDialog, setCorrectDialog] = useState<{ open: boolean; msg: Message | null }>({ open: false, msg: null })
+  const [correctText, setCorrectText] = useState('')
+
   const [callDialog, setCallDialog] = useState(false)
   const [callDate, setCallDate] = useState<Date | null>(null)
   const [callTime, setCallTime] = useState('')
@@ -175,6 +182,13 @@ export default function LeadDetailPage() {
   const [showEmoji, setShowEmoji] = useState(false)
   const emojiRef = useRef<HTMLDivElement>(null)
 
+  // Block/unblock
+  const [blockMenuOpen, setBlockMenuOpen] = useState(false)
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false)
+  const [blockLoading, setBlockLoading] = useState(false)
+  const [blockToast, setBlockToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
+  const blockMenuRef = useRef<HTMLDivElement>(null)
+
   // Voice clone state
   const [voiceEnabled, setVoiceEnabled] = useState(false)
   const [audioState, setAudioState] = useState<'idle' | 'generating' | 'ready' | 'error'>('idle')
@@ -183,11 +197,12 @@ export default function LeadDetailPage() {
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const hasAutoScrolledRef = useRef(false)
 
   const loadData = useCallback(async () => {
     const [leadRes, msgsRes, actRes, callsRes] = await Promise.all([
       supabase.from('leads').select('*').eq('id', id).single(),
-      supabase.from('messages').select('*').eq('lead_id', id).order('created_at', { ascending: true }),
+      supabase.from('messages').select('*').eq('lead_id', id).neq('status', 'rejected').order('created_at', { ascending: true }),
       supabase.from('activity_log').select('*').eq('lead_id', id).order('created_at', { ascending: false }).limit(50),
       supabase.from('calls').select('*').eq('lead_id', id).order('created_at', { ascending: false }),
     ])
@@ -212,17 +227,46 @@ export default function LeadDetailPage() {
     const channel = supabase
       .channel(`lead-${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `lead_id=eq.${id}` },
-        (payload: any) => { setMessages(prev => [...prev, payload.new as Message]) })
+        (payload: any) => {
+          const msg = payload.new as Message
+          // Mensagens rejeitadas nunca entram no chat
+          if (msg.status === 'rejected') return
+          setMessages(prev => [...prev, msg])
+        })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `lead_id=eq.${id}` },
+        (payload: any) => {
+          const msg = payload.new as Message
+          // Rejeição remota: mensagem some do chat e recalcula o typing indicator
+          if (msg.status === 'rejected') {
+            setMessages(prev => prev.filter(m => m.id !== msg.id))
+            return
+          }
+          setMessages(prev => prev.map(m => m.id === msg.id ? msg : m))
+        })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads', filter: `id=eq.${id}` },
         (payload: any) => { if (payload.new) setLead(payload.new as Lead) })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [id, loadData])
 
+  // Auto-scroll do chat para a última mensagem.
+  // - Entrada inicial na aba Conversa: 'auto' (sem animação, vai direto ao fim)
+  // - Novas mensagens após já estar na aba: 'smooth' (anima)
+  // Reseta o flag ao sair da aba para que a próxima entrada volte a usar 'auto'.
   useEffect(() => {
-    const container = chatEndRef.current?.parentElement
-    if (container) container.scrollTop = container.scrollHeight
-  }, [messages])
+    if (activeTab !== 'conversa') {
+      hasAutoScrolledRef.current = false
+      return
+    }
+    if (messages.length === 0) return
+    const behavior: ScrollBehavior = hasAutoScrolledRef.current ? 'smooth' : 'auto'
+    // rAF garante que o layout foi aplicado antes do scroll (a bubble acabou de entrar no DOM)
+    const rafId = requestAnimationFrame(() => {
+      chatEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+      hasAutoScrolledRef.current = true
+    })
+    return () => cancelAnimationFrame(rafId)
+  }, [messages, activeTab])
 
   // Check if voice clone is active
   useEffect(() => {
@@ -237,6 +281,56 @@ export default function LeadDetailPage() {
   const lastAIMessage = messages
     .filter(m => m.direction === 'outbound' && m.sent_by === 'ia' && m.status === 'sent')
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] || null
+
+  // Close block menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (blockMenuRef.current && !blockMenuRef.current.contains(e.target as Node)) setBlockMenuOpen(false)
+    }
+    if (blockMenuOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [blockMenuOpen])
+
+  function showBlockToast(msg: string, type: 'success' | 'error' = 'success') {
+    setBlockToast({ msg, type })
+    setTimeout(() => setBlockToast(null), 3000)
+  }
+
+  async function handleToggleBlock() {
+    if (!lead) return
+    const newBlocked = !lead.is_blocked
+    setBlockLoading(true)
+
+    const { error } = await supabase
+      .from('leads')
+      .update({
+        is_blocked: newBlocked,
+        ...(newBlocked ? { assigned_to: 'lukhas', is_active: false } : { is_active: true }),
+      })
+      .eq('id', id)
+
+    if (error) {
+      setBlockLoading(false)
+      setBlockConfirmOpen(false)
+      showBlockToast('Erro ao atualizar lead', 'error')
+      return
+    }
+
+    await supabase.from('activity_log').insert({
+      lead_id: id,
+      action: 'lead_blocked',
+      details: {
+        blocked: newBlocked,
+        reason: newBlocked ? 'Bloqueado manualmente' : 'Desbloqueado manualmente',
+      },
+      created_by: profile?.name || 'admin',
+    })
+
+    setBlockLoading(false)
+    setBlockConfirmOpen(false)
+    showBlockToast(newBlocked ? 'Lead bloqueado. IA não responderá mais.' : 'Lead desbloqueado.')
+    // Realtime subscription will update lead state automatically
+  }
 
   async function generateAudio() {
     if (!lastAIMessage) return
@@ -306,14 +400,48 @@ export default function LeadDetailPage() {
     setSending(false)
   }
 
-  async function handleApproveMessage(msgId: string) {
-    await supabase.from('messages').update({ status: 'approved', approved_by: profile?.name || 'user' }).eq('id', msgId)
-    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'approved' } : m))
+  async function handleApproveMessage(msgId: string, editedContent?: string) {
+    const msg = messages.find(m => m.id === msgId)
+    if (!msg) return
+    // Conteúdo final: edição do usuário (se houver) ou original. A RPC detecta a diferença
+    // e, se mudou, salva a correção como exemplo pra IA aprender.
+    const finalContent = editedContent ?? msg.content
+    try {
+      // RPC: aprova e (se houvesse edi\u00e7\u00e3o) salvaria como exemplo. Aqui passamos o conte\u00fado original.
+      await supabase.rpc('approve_message_with_correction', {
+        p_message_id: msgId,
+        p_new_content: finalContent,
+        p_approved_by: profile?.name || 'admin',
+      })
+      // Só dispara o envio via Instagram DM se a aprovação no banco foi bem-sucedida
+      await sendApprovedMessage(msgId)
+    } catch (err) {
+      console.error('Erro ao aprovar mensagem:', err)
+    }
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, content: finalContent, status: 'approved' } : m))
+    setEditingId(null)
   }
 
   async function handleRejectMessage(msgId: string) {
     await supabase.from('messages').update({ status: 'rejected' }).eq('id', msgId)
-    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'rejected' } : m))
+    // Mensagens rejeitadas não aparecem no chat — some imediatamente do state
+    setMessages(prev => prev.filter(m => m.id !== msgId))
+  }
+
+  async function handleCorrectAIMessage() {
+    if (!correctDialog.msg || !correctText.trim()) return
+    try {
+      // RPC salva a correção como exemplo de conversa e registra no activity_log
+      await supabase.rpc('correct_ai_message', {
+        p_message_id: correctDialog.msg.id,
+        p_correct_response: correctText,
+        p_corrected_by: profile?.name || 'admin',
+      })
+    } catch (err) {
+      console.error('Erro ao corrigir mensagem da IA:', err)
+    }
+    setCorrectDialog({ open: false, msg: null })
+    setCorrectText('')
   }
 
   async function handleScheduleCall() {
@@ -360,17 +488,54 @@ export default function LeadDetailPage() {
       <aside className="w-full lg:w-[340px] flex-shrink-0 bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden max-h-[calc(100vh-120px)] lg:sticky lg:top-0 self-start">
         <div className="p-6 overflow-y-auto max-h-[calc(100vh-120px)] dropdown-scroll">
           {/* Avatar + Name */}
-          <div className="flex items-center gap-4 mb-4">
-            <LeadAvatar name={lead.name} username={lead.instagram_username} photoUrl={lead.profile_pic_url} size="xl" className="ring-[3px] ring-[#C8E645]/30" />
+          <div className="flex items-start gap-4 mb-4">
+            <LeadAvatar name={lead.name} username={lead.instagram_username} photoUrl={lead.profile_pic_url} size="xl" className="ring-[3px] ring-[#C8E645]/30 flex-shrink-0" />
             <div className="min-w-0 flex-1">
-              <h2 className="text-[18px] font-bold text-[#111827] truncate">{displayName}</h2>
-              {hasReadableUsername && <p className="text-[13px] text-[#9CA3AF]">@{lead.instagram_username}</p>}
+              <div className="flex items-start justify-between gap-1">
+                <div className="min-w-0">
+                  <h2 className="text-[18px] font-bold text-[#111827] truncate">{displayName}</h2>
+                  {hasReadableUsername && <p className="text-[13px] text-[#9CA3AF]">@{lead.instagram_username}</p>}
+                </div>
+                {/* 3-dots menu */}
+                <div className="relative flex-shrink-0" ref={blockMenuRef}>
+                  <button
+                    onClick={() => setBlockMenuOpen(!blockMenuOpen)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9CA3AF] hover:bg-[#F3F4F6] hover:text-[#374151] transition-all"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {blockMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 bg-white rounded-[12px] border border-[#EFEFEF] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 w-[190px] z-50">
+                      {lead.is_blocked ? (
+                        <button
+                          onClick={() => { setBlockMenuOpen(false); handleToggleBlock() }}
+                          className="w-full text-left px-3 py-2.5 text-[13px] text-[#059669] hover:bg-[#ECFDF5] flex items-center gap-2"
+                        >
+                          <ShieldCheck className="w-4 h-4" /> Desbloquear lead
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setBlockMenuOpen(false); setBlockConfirmOpen(true) }}
+                          className="w-full text-left px-3 py-2.5 text-[13px] text-[#EF4444] hover:bg-[#FEF2F2] flex items-center gap-2"
+                        >
+                          <ShieldOff className="w-4 h-4" /> Bloquear lead
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
                 {lead.follower_count != null && (
                   <span className="text-[11px] font-medium text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded-full">{lead.follower_count.toLocaleString()} seg.</span>
                 )}
                 {lead.follows_lukhas && (
                   <span className="text-[11px] font-semibold text-[#059669] bg-[#10B981]/10 px-2 py-0.5 rounded-full">Te segue</span>
+                )}
+                {lead.is_blocked && (
+                  <span className="text-[11px] font-bold text-[#DC2626] bg-[#FEE2E2] px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <ShieldOff className="w-3 h-3" /> Bloqueado
+                  </span>
                 )}
               </div>
             </div>
@@ -538,6 +703,20 @@ export default function LeadDetailPage() {
 
       {/* RIGHT: Content */}
       <div className="flex-1 min-w-0 flex flex-col bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden max-h-[calc(100vh-120px)] lg:sticky lg:top-0 self-start">
+        {/* Blocked banner */}
+        {lead.is_blocked && (
+          <div className="flex items-center gap-3 px-5 py-3 bg-[#FFFBEB] border-b border-[#F59E0B]/20">
+            <AlertTriangle className="w-4 h-4 text-[#D97706] flex-shrink-0" />
+            <p className="text-[13px] font-medium text-[#92400E] flex-1">Lead bloqueado — automações desativadas</p>
+            <button
+              onClick={handleToggleBlock}
+              disabled={blockLoading}
+              className="text-[12px] font-bold text-[#D97706] hover:text-[#92400E] transition-colors flex-shrink-0 disabled:opacity-50"
+            >
+              {blockLoading ? 'Aguarde...' : 'Desbloquear'}
+            </button>
+          </div>
+        )}
         {/* Tabs */}
         <div className="flex items-center border-b border-[#F3F4F6] px-1">
           {[
@@ -580,6 +759,9 @@ export default function LeadDetailPage() {
                     const isIA = msg.sent_by === 'ia'
                     const isPending = msg.status === 'pending'
 
+                    const isEditing = editingId === msg.id
+                    const canCorrect = isIA && !isPending && msg.status === 'sent'
+
                     return (
                       <div key={msg.id} className={cn('flex gap-3', !isLead && 'flex-row-reverse')}>
                         {/* Avatar */}
@@ -594,7 +776,7 @@ export default function LeadDetailPage() {
                         </div>
 
                         {/* Bubble */}
-                        <div className="max-w-[65%] min-w-[120px]">
+                        <div className={cn('min-w-[120px]', isEditing ? 'w-[min(420px,80%)]' : 'max-w-[65%]')}>
                           <div className={cn('flex items-center gap-2 mb-1', !isLead && 'flex-row-reverse')}>
                             <span className="text-[11px] font-semibold text-[#374151]">
                               {isLead ? (lead.name?.split(' ')[0] || 'Lead') : isIA ? 'IA' : 'Lukhas'}
@@ -615,19 +797,53 @@ export default function LeadDetailPage() {
                             isLead
                               ? 'bg-white border border-[#EFEFEF] rounded-[16px] rounded-tl-[4px] text-[#374151]'
                               : isPending
-                                ? 'bg-[#FFFBEB] border-[1.5px] border-[#F59E0B]/25 rounded-[16px] rounded-tr-[4px] text-[#374151]'
+                                ? isEditing
+                                  ? 'bg-white border-[1.5px] border-[#C8E645] rounded-[16px] rounded-tr-[4px] text-[#374151] shadow-[0_0_0_3px_rgba(200,230,69,0.15)]'
+                                  : 'bg-[#FFFBEB] border-[1.5px] border-[#F59E0B]/25 rounded-[16px] rounded-tr-[4px] text-[#374151]'
                                 : isIA
                                   ? 'bg-[#F0FFF4] border border-[#C8E645]/20 rounded-[16px] rounded-tr-[4px] text-[#374151]'
                                   : 'bg-[#F7F8F9] border border-[#EFEFEF] rounded-[16px] rounded-tr-[4px] text-[#374151]',
                           )}>
-                            {msg.content}
+                            {isEditing ? (
+                              <textarea
+                                autoFocus
+                                value={editContent}
+                                onChange={e => setEditContent(e.target.value)}
+                                rows={Math.max(2, editContent.split('\n').length)}
+                                className="w-full bg-transparent border-0 text-[14px] text-[#374151] leading-relaxed resize-none focus:ring-0 focus:outline-none p-0 m-0"
+                              />
+                            ) : (
+                              msg.content
+                            )}
                           </div>
 
-                          {isPending && (
+                          {isPending && isEditing && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <button onClick={() => handleApproveMessage(msg.id, editContent)} disabled={!editContent.trim()}
+                                className={cn(
+                                  'flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold rounded-full transition-all',
+                                  editContent.trim()
+                                    ? 'bg-[#C8E645] text-[#111827] shadow-[0_2px_6px_rgba(200,230,69,0.3)] hover:-translate-y-px active:scale-95'
+                                    : 'bg-[#F3F4F6] text-[#C0C7D0] cursor-not-allowed',
+                                )}>
+                                <Check className="w-3 h-3" /> Salvar e aprovar
+                              </button>
+                              <button onClick={() => setEditingId(null)}
+                                className="px-3 py-1.5 text-[#6B7280] text-[11px] font-medium rounded-full hover:bg-[#F3F4F6] active:scale-95 transition-all">
+                                Cancelar
+                              </button>
+                            </div>
+                          )}
+
+                          {isPending && !isEditing && (
                             <div className="flex items-center gap-2 mt-2">
                               <button onClick={() => handleApproveMessage(msg.id)}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-[#C8E645] text-[#111827] text-[11px] font-bold rounded-full shadow-[0_2px_6px_rgba(200,230,69,0.3)] hover:-translate-y-px active:scale-95 transition-all">
                                 <Check className="w-3 h-3" /> Aprovar
+                              </button>
+                              <button onClick={() => { setEditingId(msg.id); setEditContent(msg.content) }}
+                                className="flex items-center gap-1 px-3 py-1.5 border border-[#E5E7EB] text-[#374151] text-[11px] font-semibold rounded-full hover:bg-white hover:border-[#D1D5DB] active:scale-95 transition-all">
+                                <Pencil className="w-3 h-3 text-[#6B7280]" /> Editar
                               </button>
                               <button onClick={() => handleRejectMessage(msg.id)}
                                 className="flex items-center gap-1 px-3 py-1.5 border border-[#EF4444]/30 text-[#EF4444] text-[11px] font-semibold rounded-full hover:bg-[#FEF2F2] active:scale-95 transition-all">
@@ -635,16 +851,28 @@ export default function LeadDetailPage() {
                               </button>
                             </div>
                           )}
+
+                          {canCorrect && (
+                            <div className={cn('flex mt-1.5', !isLead && 'justify-end')}>
+                              <button
+                                onClick={() => { setCorrectDialog({ open: true, msg }); setCorrectText('') }}
+                                className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF] hover:text-[#7A9E00] transition-colors"
+                              >
+                                <Bot className="w-2.5 h-2.5" /> Corrigir IA
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )
                   })}
-                  {/* Typing indicator — only when IA is generating (last msg is inbound, assigned to IA, no pending yet) */}
+                  {/* Typing indicator — aparece enquanto existir mensagem da IA aguardando aprovação.
+                      Some quando a msg é aprovada (status=approved/sent) ou rejeitada (removida do state). */}
                   {(() => {
-                    const hasPending = messages.some(m => m.status === 'pending' && m.direction === 'outbound')
-                    const lastMsg = messages[messages.length - 1]
-                    const isLeadWaiting = lastMsg?.direction === 'inbound' && lead.assigned_to === 'ia' && !hasPending
-                    if (!isLeadWaiting) return null
+                    const isAiGenerating = messages.some(
+                      m => m.status === 'pending' && m.direction === 'outbound' && m.sent_by === 'ia'
+                    )
+                    if (!isAiGenerating) return null
                     return (
                       <div className="flex gap-3 flex-row-reverse">
                         <div className="w-8 h-8 rounded-full flex-shrink-0 mt-1 overflow-hidden bg-[#C8E645]/15 flex items-center justify-center">
@@ -1082,6 +1310,117 @@ export default function LeadDetailPage() {
               className={cn('flex-1 py-3 rounded-full text-[14px] font-bold transition-all',
                 followUpDate ? 'bg-[#C8E645] text-[#111827] shadow-[0_4px_14px_rgba(200,230,69,0.35)] hover:-translate-y-px active:scale-[0.98]' : 'bg-[#F3F4F6] text-[#C0C7D0] cursor-not-allowed')}>
               Salvar Follow-up
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Confirmar bloqueio */}
+      <Dialog open={blockConfirmOpen} onOpenChange={open => { if (!blockLoading) setBlockConfirmOpen(open) }}>
+        <DialogContent className="[&>button]:hidden bg-white rounded-[20px] p-0 overflow-hidden w-[calc(100vw-32px)] max-w-[420px] shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+          <div className="p-6">
+            <div className="w-12 h-12 rounded-full bg-[#FEE2E2] flex items-center justify-center mb-4">
+              <ShieldOff className="w-6 h-6 text-[#EF4444]" />
+            </div>
+            <h3 className="text-[18px] font-bold text-[#111827] mb-1">Bloquear lead?</h3>
+            <p className="text-[14px] text-[#6B7280] mb-5">
+              {hasReadableUsername ? `@${lead.instagram_username}` : displayName} não receberá mais mensagens da IA e os follow-ups automáticos serão desativados.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setBlockConfirmOpen(false)}
+                disabled={blockLoading}
+                className="flex-1 py-2.5 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleToggleBlock}
+                disabled={blockLoading}
+                className="flex-1 py-2.5 bg-[#EF4444] rounded-full text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(239,68,68,0.3)] hover:-translate-y-px active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {blockLoading ? 'Bloqueando...' : 'Bloquear'}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Toast block/unblock */}
+      {blockToast && (
+        <div className={cn(
+          'fixed bottom-6 right-6 z-[200] px-4 py-3 rounded-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.15)] text-[13px] font-semibold flex items-center gap-2 animate-dropdown-in',
+          blockToast.type === 'error'
+            ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#EF4444]/20'
+            : 'bg-[#F0FFF4] text-[#059669] border border-[#10B981]/20',
+        )}>
+          {blockToast.type === 'error' ? '✕' : '✓'} {blockToast.msg}
+        </div>
+      )}
+
+      {/* Dialog: Corrigir IA */}
+      <Dialog open={correctDialog.open} onOpenChange={open => { if (!open) { setCorrectDialog({ open: false, msg: null }); setCorrectText('') } }}>
+        <DialogContent className={cn(
+          '[&>button]:hidden bg-white rounded-[20px] p-0 overflow-hidden',
+          'w-[calc(100vw-32px)] max-w-[480px] shadow-[0_20px_60px_rgba(0,0,0,0.15)]',
+        )}>
+          <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-[18px] font-bold text-[#111827]">Corrigir a IA</h3>
+              <p className="text-[13px] text-[#6B7280] mt-1">Ensine como deveria ter respondido</p>
+            </div>
+            <button onClick={() => { setCorrectDialog({ open: false, msg: null }); setCorrectText('') }} className="w-8 h-8 rounded-full hover:bg-[#F3F4F6] flex items-center justify-center transition-colors">
+              <X className="w-4 h-4 text-[#9CA3AF]" />
+            </button>
+          </div>
+
+          <div className="px-6 pb-4 space-y-4">
+            <div>
+              <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">IA escreveu</label>
+              <div className="px-4 py-3 bg-[#F7F8F9] rounded-[10px] text-[13px] text-[#6B7280] border border-[#EFEFEF]">
+                {correctDialog.msg?.content}
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">Como deveria ser</label>
+              <textarea
+                autoFocus
+                value={correctText}
+                onChange={e => setCorrectText(e.target.value)}
+                placeholder="Escreva como você responderia..."
+                className={cn(
+                  'w-full bg-white border-[1.5px] border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#374151]',
+                  'focus:border-[#C8E645] focus:ring-0 focus:outline-none focus:shadow-[0_0_0_3px_rgba(200,230,69,0.15)]',
+                  'transition-all min-h-[100px] resize-none placeholder-[#C0C7D0]',
+                )}
+              />
+            </div>
+            <div className="flex items-start gap-2.5 p-3 bg-[#C8E645]/8 rounded-[10px]">
+              <Info className="w-4 h-4 text-[#7A9E00] flex-shrink-0 mt-0.5" />
+              <p className="text-[12px] text-[#5A6B00] leading-relaxed">
+                Essa correção será salva como exemplo e a IA vai aprender com ela.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-[#F3F4F6] px-6 py-4 flex gap-3">
+            <button
+              onClick={() => { setCorrectDialog({ open: false, msg: null }); setCorrectText('') }}
+              className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleCorrectAIMessage}
+              disabled={!correctText.trim()}
+              className={cn(
+                'flex-1 py-3 rounded-full text-[14px] font-bold transition-all',
+                correctText.trim()
+                  ? 'bg-[#C8E645] text-[#111827] shadow-[0_4px_14px_rgba(200,230,69,0.35)] hover:-translate-y-px active:scale-[0.98]'
+                  : 'bg-[#F3F4F6] text-[#C0C7D0] cursor-not-allowed',
+              )}
+            >
+              Salvar correção
             </button>
           </div>
         </DialogContent>

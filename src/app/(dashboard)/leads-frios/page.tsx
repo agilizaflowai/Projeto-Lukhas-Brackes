@@ -81,6 +81,8 @@ export default function LeadsFriosPage() {
   const [editedTexts, setEditedTexts] = useState<Record<string, string>>({})
   const [abordados, setAbordados] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
+  // Sugest\u00f5es geradas pela IA (vindas de tasks.suggested_text), por lead_id
+  const [aiSuggestions, setAiSuggestions] = useState<Record<string, string>>({})
 
   const supabase = createClient()
 
@@ -91,7 +93,34 @@ export default function LeadsFriosPage() {
       .eq('stage', 'lead_frio')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
-    if (data) setLeads(data)
+    if (data) {
+      setLeads(data)
+
+      // Busca em batch as tasks pendentes com sugest\u00e3o da IA pra esses leads
+      const leadIds = data.map(l => l.id)
+      if (leadIds.length > 0) {
+        try {
+          const { data: tasks } = await supabase
+            .from('tasks')
+            .select('lead_id, suggested_text, created_at')
+            .in('lead_id', leadIds)
+            .eq('status', 'pending')
+            .not('suggested_text', 'is', null)
+            .order('created_at', { ascending: false })
+
+          // Mant\u00e9m apenas a sugest\u00e3o mais recente por lead
+          const map: Record<string, string> = {}
+          for (const t of tasks || []) {
+            if (t.lead_id && t.suggested_text && !map[t.lead_id]) {
+              map[t.lead_id] = t.suggested_text
+            }
+          }
+          setAiSuggestions(map)
+        } catch (err) {
+          console.warn('Falha ao buscar suggested_text das tasks:', err)
+        }
+      }
+    }
     setLoading(false)
   }, [])
 
@@ -129,8 +158,9 @@ export default function LeadsFriosPage() {
 
   /* ── actions ── */
 
+  // Prioridade: edi\u00e7\u00e3o local > sugest\u00e3o real da IA (task) > template client-side
   function getLeadSuggestion(lead: Lead): string {
-    return editedTexts[lead.id] || getSuggestionForLead(lead)
+    return editedTexts[lead.id] || aiSuggestions[lead.id] || getSuggestionForLead(lead)
   }
 
   async function copyAndOpenChat(lead: Lead) {
@@ -295,7 +325,7 @@ export default function LeadsFriosPage() {
               const hasValidUsername = isValidInstagramUsername(lead.instagram_username)
               const displayName = getLeadDisplayName(lead)
               const displayUsername = getLeadDisplayUsername(lead)
-              const suggestion = getSuggestionForLead(lead)
+              const suggestion = aiSuggestions[lead.id] || getSuggestionForLead(lead)
 
               return (
                 <div

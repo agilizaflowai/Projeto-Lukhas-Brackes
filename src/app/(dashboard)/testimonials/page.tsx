@@ -6,8 +6,21 @@ import { FilterDropdown } from '@/components/common/FilterDropdown'
 import { DropdownPortal } from '@/components/common/DropdownPortal'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { Plus, Pencil, Trash2, X, Award, Trophy, ChevronDown, Check, Play, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Award, Trophy, ChevronDown, Check, Play, AlertTriangle, ImagePlus, Film, Loader2 } from 'lucide-react'
 import type { Testimonial } from '@/lib/types'
+
+const MEDIA_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/webm']
+const MEDIA_ACCEPTED_EXT = '.jpg,.jpeg,.png,.webp,.mp4,.mov,.webm'
+const MEDIA_MAX_BYTES = 50 * 1024 * 1024
+
+function formatMediaSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function inferMediaType(mime: string): 'image' | 'video' {
+  return mime.startsWith('video/') ? 'video' : 'image'
+}
 
 function InlineSelect({ value, options, onChange, placeholder = '—', className: wrapClass }: {
   value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; placeholder?: string; className?: string
@@ -92,6 +105,26 @@ export default function TestimonialsPage() {
   const [filterGoal, setFilterGoal] = useState('')
   const [filterContext, setFilterContext] = useState('')
 
+  // Upload de mídia (imagem/vídeo) do depoimento
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Lightbox pra visualizar mídia ao clicar no card
+  const [lightboxMedia, setLightboxMedia] = useState<{ url: string; type: string } | null>(null)
+
+  // Toast de feedback (erros e sucesso)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  function showToast(type: 'success' | 'error', message: string) {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    setToast({ type, message })
+    toastTimeoutRef.current = setTimeout(() => setToast(null), type === 'error' ? 5000 : 3000)
+  }
+
   async function load() {
     const { data } = await supabase.from('testimonials').select('*').eq('is_active', true).order('created_at', { ascending: false })
     if (data) setItems(data)
@@ -100,31 +133,195 @@ export default function TestimonialsPage() {
 
   useEffect(() => { load() }, [])
 
-  function openNew() { setEditing({ ...EMPTY }); setDialog(true) }
-  function openEdit(t: Testimonial) { setEditing({ ...t }); setDialog(true) }
+  // Revoga o objectURL do preview local quando o componente desmonta
+  useEffect(() => {
+    return () => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl) }
+  }, [filePreviewUrl])
+
+  // Limpa o timer do toast ao desmontar
+  useEffect(() => {
+    return () => { if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current) }
+  }, [])
+
+  // Extrai o filename do Storage a partir da URL pública pra poder chamar remove().
+  // Retorna null se a URL não bate com o bucket 'testimonials'.
+  function extractStoragePath(url: string | null | undefined): string | null {
+    if (!url) return null
+    const marker = '/storage/v1/object/public/testimonials/'
+    const idx = url.indexOf(marker)
+    if (idx === -1) return null
+    return decodeURIComponent(url.slice(idx + marker.length))
+  }
+
+  function clearSelectedFile() {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl)
+    setSelectedFile(null)
+    setFilePreviewUrl(null)
+    setFileError(null)
+  }
+
+  function validateMediaFile(file: File): string | null {
+    if (!MEDIA_ACCEPTED_TYPES.includes(file.type)) {
+      return 'Formato não suportado. Use JPG, PNG, WebP, MP4, MOV ou WebM.'
+    }
+    if (file.size > MEDIA_MAX_BYTES) {
+      return 'Arquivo muito grande. Máximo 50MB.'
+    }
+    return null
+  }
+
+  function handleMediaFile(file: File) {
+    const err = validateMediaFile(file)
+    if (err) { setFileError(err); return }
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl)
+    setSelectedFile(file)
+    setFilePreviewUrl(URL.createObjectURL(file))
+    setFileError(null)
+  }
+
+  function handleMediaDrag(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true)
+    if (e.type === 'dragleave') setDragActive(false)
+  }
+
+  function handleMediaDrop(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    const f = e.dataTransfer.files?.[0]
+    if (f) handleMediaFile(f)
+  }
+
+  function openNew() {
+    clearSelectedFile()
+    setEditing({ ...EMPTY })
+    setDialog(true)
+  }
+  function openEdit(t: Testimonial) {
+    clearSelectedFile()
+    setEditing({ ...t })
+    setDialog(true)
+  }
+  function closeDialog() {
+    clearSelectedFile()
+    setDialog(false)
+  }
 
   async function handleSave() {
     setSaving(true)
-    const payload = {
-      student_name: editing.student_name, student_instagram: editing.student_instagram || null,
-      content: editing.content,
-      media_url: editing.media_url || null, media_type: editing.media_type || null,
-      student_gender: editing.student_gender || null, student_fitness_level: editing.student_fitness_level || null,
-      student_goal: editing.student_goal || null, student_context: editing.student_context || null,
-      result_summary: editing.result_summary || null, source: editing.source || null,
-      tags: editing.tags || [], is_active: true,
+    setFileError(null)
+
+    try {
+      let mediaUrl = editing.media_url || null
+      let mediaType = editing.media_type || null
+
+      // Upload opcional — só roda se houver arquivo novo selecionado
+      if (selectedFile) {
+        setUploading(true)
+        try {
+          const fileExt = selectedFile.name.split('.').pop()
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
+          const { error: uploadError } = await supabase.storage
+            .from('testimonials')
+            .upload(fileName, selectedFile, { contentType: selectedFile.type })
+          if (uploadError) {
+            console.error('Erro no upload da mídia:', uploadError)
+            setFileError('Falha ao enviar o arquivo: ' + uploadError.message)
+            showToast('error', 'Falha ao enviar a mídia: ' + uploadError.message)
+            return
+          }
+          const { data: pub } = supabase.storage.from('testimonials').getPublicUrl(fileName)
+          // Remove a mídia antiga (se havia) APÓS o upload do novo dar certo
+          const oldPath = extractStoragePath(editing.media_url)
+          if (oldPath) {
+            await supabase.storage.from('testimonials').remove([oldPath]).catch(err => {
+              console.warn('Falha ao remover mídia antiga:', err)
+            })
+          }
+          mediaUrl = pub.publicUrl
+          mediaType = inferMediaType(selectedFile.type)
+        } finally {
+          setUploading(false)
+        }
+      }
+
+      const payload = {
+        student_name: editing.student_name, student_instagram: editing.student_instagram || null,
+        content: editing.content,
+        media_url: mediaUrl, media_type: mediaType,
+        student_gender: editing.student_gender || null, student_fitness_level: editing.student_fitness_level || null,
+        student_goal: editing.student_goal || null, student_context: editing.student_context || null,
+        result_summary: editing.result_summary || null, source: editing.source || null,
+        tags: editing.tags || [], is_active: true,
+      }
+
+      // Captura explícita do erro — sem isso, RLS/validation silenciosos somem
+      const { error: dbError } = editing.id
+        ? await supabase.from('testimonials').update(payload).eq('id', editing.id)
+        : await supabase.from('testimonials').insert(payload)
+
+      if (dbError) {
+        // PostgrestError estende Error: message/code/details/hint NÃO são enumeráveis,
+        // então console.error(err) imprime {}. Extraímos os campos manualmente.
+        const e = dbError as unknown as { message?: string; code?: string; details?: string; hint?: string; name?: string }
+        console.error('Erro ao salvar depoimento:', {
+          message: e.message,
+          code: e.code,
+          details: e.details,
+          hint: e.hint,
+          name: e.name,
+        })
+        // JSON.stringify pra aparecer legível tanto no console quanto no overlay do Next (que serializa o primeiro arg como string)
+        console.error('Payload rejeitado:', JSON.stringify(payload, null, 2))
+        // Fallback em cascata — mensagens do supabase às vezes vêm em details/hint em vez de message
+        const msg = e.message || e.details || e.hint || e.code || 'erro sem mensagem (verifique RLS e policies da tabela testimonials no Supabase)'
+        showToast('error', 'Erro ao salvar: ' + msg)
+        return
+      }
+
+      showToast('success', editing.id ? 'Depoimento atualizado' : 'Depoimento criado')
+      clearSelectedFile()
+      setDialog(false)
+      load()
+    } catch (err) {
+      // Exception inesperada (network, JSON parse, etc) — último recurso
+      console.error('Exception em handleSave:', err)
+      showToast('error', 'Erro inesperado: ' + ((err as Error)?.message || 'tente novamente'))
+    } finally {
+      setSaving(false)
     }
-    if (editing.id) {
-      await supabase.from('testimonials').update(payload).eq('id', editing.id)
-    } else {
-      await supabase.from('testimonials').insert(payload)
-    }
-    setSaving(false); setDialog(false); load()
   }
 
   async function handleDelete(id: string) {
-    await supabase.from('testimonials').update({ is_active: false }).eq('id', id)
-    setDeleteConfirm(null); load()
+    try {
+      // Remove o arquivo do Storage (se houver) antes de desativar o registro.
+      // Se o remove falhar, segue com o soft-delete — o arquivo órfão não trava a operação.
+      const item = items.find(i => i.id === id)
+      const path = extractStoragePath(item?.media_url)
+      if (path) {
+        await supabase.storage.from('testimonials').remove([path]).catch(err => {
+          console.warn('Falha ao remover mídia do storage:', err)
+        })
+      }
+      const { error } = await supabase.from('testimonials').update({ is_active: false }).eq('id', id)
+      if (error) {
+        const e = error as unknown as { message?: string; code?: string; details?: string; hint?: string }
+        console.error('Erro ao excluir depoimento:', {
+          message: e.message, code: e.code, details: e.details, hint: e.hint,
+        })
+        const msg = e.message || e.details || e.hint || e.code || 'erro sem mensagem'
+        showToast('error', 'Erro ao excluir: ' + msg)
+        return
+      }
+      showToast('success', 'Depoimento excluído')
+      setDeleteConfirm(null)
+      load()
+    } catch (err) {
+      console.error('Exception em handleDelete:', err)
+      showToast('error', 'Erro inesperado: ' + ((err as Error)?.message || 'tente novamente'))
+    }
   }
 
   function addTag() {
@@ -172,19 +369,28 @@ export default function TestimonialsPage() {
             <div key={t.id} className="bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden group hover:shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
               {/* Media header */}
               {t.media_url && t.media_type === 'video' && (
-                <div className="relative h-[160px] overflow-hidden bg-[#F3F4F6]">
-                  <img src={t.media_url} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setLightboxMedia({ url: t.media_url!, type: 'video' })}
+                  className="relative h-[160px] overflow-hidden bg-[#F3F4F6] block w-full text-left"
+                >
+                  <video src={t.media_url} className="w-full h-full object-cover" preload="metadata" muted playsInline />
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center group-hover:bg-black/30 transition-colors">
                     <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                       <Play className="w-5 h-5 text-[#111827] ml-0.5" />
                     </div>
                   </div>
-                </div>
+                </button>
               )}
               {t.media_url && t.media_type !== 'video' && (
-                <div className="h-[160px] overflow-hidden bg-[#F3F4F6]">
+                <button
+                  type="button"
+                  onClick={() => setLightboxMedia({ url: t.media_url!, type: 'image' })}
+                  className="h-[160px] overflow-hidden bg-[#F3F4F6] block w-full"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={t.media_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
+                </button>
               )}
 
               <div className="p-6 flex-1 flex flex-col">
@@ -259,11 +465,11 @@ export default function TestimonialsPage() {
       )}
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialog} onOpenChange={setDialog}>
+      <Dialog open={dialog} onOpenChange={open => { if (!open) closeDialog() }}>
         <DialogContent className={cn('[&>button]:hidden bg-white rounded-[20px] p-0 overflow-hidden w-[calc(100vw-32px)] max-w-[520px] max-h-[calc(100vh-48px)] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.15)]')}>
           <div className="flex items-center justify-between px-6 pt-6 pb-3 flex-shrink-0">
             <h3 className="text-[18px] font-bold text-[#111827]">{editing.id ? 'Editar depoimento' : 'Novo depoimento'}</h3>
-            <button onClick={() => setDialog(false)} className="w-8 h-8 rounded-full hover:bg-[#F3F4F6] flex items-center justify-center transition-colors"><X className="w-4 h-4 text-[#9CA3AF]" /></button>
+            <button onClick={closeDialog} className="w-8 h-8 rounded-full hover:bg-[#F3F4F6] flex items-center justify-center transition-colors"><X className="w-4 h-4 text-[#9CA3AF]" /></button>
           </div>
 
           <div className="overflow-y-auto flex-1 min-h-0 dropdown-scroll px-6 pb-4 space-y-4">
@@ -301,22 +507,124 @@ export default function TestimonialsPage() {
               </div>
             </div>
 
-            {/* Media */}
+            {/* Media upload */}
             <div>
               <label className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5 block">Mídia (opcional)</label>
-              <div className="grid grid-cols-[1fr,130px] gap-3">
-                <input value={editing.media_url || ''} onChange={e => setEditing(p => ({ ...p, media_url: e.target.value }))} placeholder="URL da imagem ou vídeo"
-                  className="w-full bg-[#F7F8F9] border-[1.5px] border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#374151] placeholder-[#C0C7D0] focus:border-[#C8E645] focus:ring-0 focus:outline-none transition-all" />
-                <InlineSelect
-                  value={editing.media_type || ''}
-                  onChange={v => setEditing(p => ({ ...p, media_type: v || null }))}
-                  placeholder="Tipo"
-                  options={[
-                    { value: 'image', label: 'Imagem' },
-                    { value: 'video', label: 'Vídeo' },
-                  ]}
-                />
-              </div>
+              {(() => {
+                // 3 estados: arquivo novo selecionado · mídia já existente (edição) · vazio
+                const hasNewFile = !!(selectedFile && filePreviewUrl)
+                const hasExistingMedia = !hasNewFile && !!editing.media_url
+                const previewUrl = hasNewFile ? filePreviewUrl! : editing.media_url
+                const previewType = hasNewFile
+                  ? inferMediaType(selectedFile!.type)
+                  : (editing.media_type || 'image')
+
+                if (hasNewFile || hasExistingMedia) {
+                  return (
+                    <div className="rounded-[12px] border border-[#EFEFEF] bg-[#F7F8F9] overflow-hidden">
+                      <div className="relative aspect-video bg-[#F3F4F6]">
+                        {previewType === 'video' ? (
+                          <video
+                            src={previewUrl || undefined}
+                            className="w-full h-full object-contain bg-black"
+                            controls
+                            preload="metadata"
+                          />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={previewUrl || ''} alt="preview" className="w-full h-full object-contain" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 px-4 py-3 bg-white border-t border-[#EFEFEF]">
+                        <div className="w-8 h-8 rounded-[8px] bg-[#F3F4F6] flex items-center justify-center flex-shrink-0">
+                          {previewType === 'video' ? (
+                            <Film className="w-4 h-4 text-[#6B7280]" />
+                          ) : (
+                            <ImagePlus className="w-4 h-4 text-[#6B7280]" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-[#111827] truncate">
+                            {hasNewFile ? selectedFile!.name : 'Mídia atual'}
+                          </p>
+                          <p className="text-[11px] text-[#9CA3AF]">
+                            {hasNewFile ? formatMediaSize(selectedFile!.size) : 'Envie um novo arquivo pra substituir'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[12px] font-semibold text-[#6B7280] hover:text-[#111827] px-3 py-1.5 rounded-full hover:bg-[#F3F4F6] transition-all"
+                        >
+                          Trocar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            clearSelectedFile()
+                            if (hasExistingMedia) {
+                              setEditing(p => ({ ...p, media_url: '', media_type: null }))
+                            }
+                          }}
+                          className="w-8 h-8 rounded-full hover:bg-[#FEF2F2] flex items-center justify-center text-[#9CA3AF] hover:text-[#EF4444] transition-all flex-shrink-0"
+                          title="Remover"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={MEDIA_ACCEPTED_EXT}
+                        onChange={e => { if (e.target.files?.[0]) handleMediaFile(e.target.files[0]); e.target.value = '' }}
+                        className="hidden"
+                      />
+                    </div>
+                  )
+                }
+
+                return (
+                  <div
+                    onDragEnter={handleMediaDrag}
+                    onDragLeave={handleMediaDrag}
+                    onDragOver={handleMediaDrag}
+                    onDrop={handleMediaDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      'relative border-[2px] border-dashed rounded-[12px] px-4 py-6 text-center cursor-pointer transition-all',
+                      dragActive
+                        ? 'border-[#C8E645] bg-[#C8E645]/5'
+                        : 'border-[#E5E7EB] hover:border-[#C8E645]/40 hover:bg-[#FAFBFC]'
+                    )}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={MEDIA_ACCEPTED_EXT}
+                      onChange={e => { if (e.target.files?.[0]) handleMediaFile(e.target.files[0]); e.target.value = '' }}
+                      className="hidden"
+                    />
+                    <div className={cn(
+                      'w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center transition-colors',
+                      dragActive ? 'bg-[#C8E645]/20' : 'bg-[#F3F4F6]'
+                    )}>
+                      <ImagePlus className={cn('w-5 h-5', dragActive ? 'text-[#7A9E00]' : 'text-[#9CA3AF]')} />
+                    </div>
+                    <p className="text-[13px] font-semibold text-[#111827]">
+                      {dragActive ? 'Solte o arquivo aqui' : 'Clique ou arraste uma imagem/vídeo'}
+                    </p>
+                    <p className="text-[11px] text-[#9CA3AF] mt-1">
+                      JPG, PNG, WebP, MP4, MOV, WebM · até 50MB
+                    </p>
+                  </div>
+                )
+              })()}
+              {fileError && (
+                <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[#EF4444]">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                  {fileError}
+                </p>
+              )}
             </div>
 
             {/* Classification */}
@@ -416,16 +724,34 @@ export default function TestimonialsPage() {
               </div>
             )}
             <div className="flex gap-3">
-              <button onClick={() => setDialog(false)} className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all">Cancelar</button>
-              <button onClick={handleSave} disabled={saving || !editing.student_name?.trim() || !editing.content?.trim() || !editing.student_gender || !editing.student_goal}
-                className={cn('flex-1 py-3 rounded-full text-[14px] font-bold transition-all',
-                  editing.student_name?.trim() && editing.content?.trim() && editing.student_gender && editing.student_goal
+              <button onClick={closeDialog} disabled={saving || uploading} className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all disabled:opacity-50">Cancelar</button>
+              <button onClick={handleSave} disabled={saving || uploading || !editing.student_name?.trim() || !editing.content?.trim() || !editing.student_gender || !editing.student_goal}
+                className={cn('flex-1 py-3 rounded-full text-[14px] font-bold transition-all flex items-center justify-center gap-2',
+                  editing.student_name?.trim() && editing.content?.trim() && editing.student_gender && editing.student_goal && !saving && !uploading
                     ? 'bg-[#C8E645] text-[#111827] shadow-[0_4px_14px_rgba(200,230,69,0.35)] hover:-translate-y-px active:scale-[0.98]'
                     : 'bg-[#F3F4F6] text-[#C0C7D0] cursor-not-allowed')}>
-                {saving ? 'Salvando...' : editing.id ? 'Salvar alterações' : 'Criar depoimento'}
+                {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando mídia...</> : saving ? 'Salvando...' : editing.id ? 'Salvar alterações' : 'Criar depoimento'}
               </button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lightbox de mídia — abre ao clicar no thumbnail do card */}
+      <Dialog open={!!lightboxMedia} onOpenChange={open => { if (!open) setLightboxMedia(null) }}>
+        <DialogContent className="[&>button]:hidden bg-black/95 rounded-[20px] p-0 overflow-hidden w-[calc(100vw-32px)] max-w-[760px] max-h-[calc(100vh-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
+          <button
+            onClick={() => setLightboxMedia(null)}
+            className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur flex items-center justify-center transition-all"
+          >
+            <X className="w-4 h-4 text-white" />
+          </button>
+          {lightboxMedia?.type === 'video' ? (
+            <video src={lightboxMedia.url} className="w-full max-h-[calc(100vh-96px)] bg-black" controls autoPlay />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lightboxMedia?.url || ''} alt="" className="w-full max-h-[calc(100vh-96px)] object-contain" />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -443,6 +769,24 @@ export default function TestimonialsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Toast — feedback de operação (success / error) */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            'fixed bottom-6 right-6 flex items-start gap-2 text-white text-[13px] font-medium px-4 py-3 rounded-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.2)] animate-dropdown-in z-50 max-w-[380px]',
+            toast.type === 'error' ? 'bg-[#EF4444]' : 'bg-[#111827]',
+          )}
+        >
+          {toast.type === 'error'
+            ? <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            : <Check className="w-4 h-4 text-[#C8E645] flex-shrink-0 mt-0.5" />
+          }
+          <span className="flex-1 leading-relaxed">{toast.message}</span>
+        </div>
+      )}
     </div>
   )
 }

@@ -113,6 +113,23 @@ export default function FollowUpPage() {
     Promise.all([loadLeads(), loadRules(), loadHistory()]).then(() => setLoading(false))
   }, [])
 
+  // Lead real usado pra preview de templates. Pega o primeiro lead em follow-up
+  // (que \u00e9 o que a p\u00e1gina j\u00e1 carrega). Se n\u00e3o houver, o preview cai em placeholders neutros.
+  const previewSample = leads[0]
+    ? {
+        name: leads[0].name,
+        goal: leads[0].goal,
+        life_context: leads[0].life_context,
+        fitness_level: leads[0].fitness_level,
+        gender: leads[0].gender,
+        instagram_username: leads[0].instagram_username,
+        follow_up_count: leads[0].follow_up_count,
+        days_since_last_message: leads[0].last_interaction_at
+          ? Math.floor((Date.now() - new Date(leads[0].last_interaction_at).getTime()) / 86400000)
+          : null,
+      }
+    : undefined
+
   async function pauseFollowUp(leadId: string) {
     await supabase.from('leads').update({
       stage: 'rapport',
@@ -618,10 +635,12 @@ export default function FollowUpPage() {
                             <div className="bg-[#C8E645]/5 rounded-[10px] border border-[#C8E645]/10 p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Eye className="w-3.5 h-3.5 text-[#7A9E00]" />
-                                <span className="text-[10px] font-bold text-[#7A9E00] uppercase tracking-[0.04em]">Preview com dados de exemplo</span>
+                                <span className="text-[10px] font-bold text-[#7A9E00] uppercase tracking-[0.04em]">
+                                  {previewSample ? `Preview com dados de ${getLeadDisplayName(leads[0])}` : 'Preview (sem leads em follow-up)'}
+                                </span>
                               </div>
                               <p className="text-[13px] text-[#374151] leading-relaxed whitespace-pre-wrap italic">
-                                &ldquo;{previewFollowUpTemplate(editingTemplate === rule.id ? tempTemplate : rule.message_template)}&rdquo;
+                                &ldquo;{previewFollowUpTemplate(editingTemplate === rule.id ? tempTemplate : rule.message_template, previewSample)}&rdquo;
                               </p>
                             </div>
                           </div>
@@ -808,7 +827,7 @@ export default function FollowUpPage() {
                     <span className="text-[10px] font-bold text-[#7A9E00] uppercase tracking-[0.04em]">Preview</span>
                   </div>
                   <p className="text-[13px] text-[#374151] leading-relaxed whitespace-pre-wrap">
-                    {previewFollowUpTemplate(ruleForm.message_template)}
+                    {previewFollowUpTemplate(ruleForm.message_template, previewSample)}
                   </p>
                 </div>
               )}

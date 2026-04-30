@@ -1,16 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { FilterDropdown } from '@/components/common/FilterDropdown'
 import { cn } from '@/lib/utils'
-import { Search, ExternalLink, Users, Plus, Bot } from 'lucide-react'
+import { Search, ExternalLink, Users, Bot, MoreVertical, ShieldOff, ShieldCheck } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { STAGE_COLORS } from '@/lib/stage-colors'
 import { EmptyState } from '@/components/common/EmptyState'
 import { LeadAvatar } from '@/components/common/LeadAvatar'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import type { Lead, LeadStage } from '@/lib/types'
 
 const STAGE_DOT_COLORS: Record<string, string> = {
@@ -54,7 +55,15 @@ export default function LeadsPage() {
   const [filterStage, setFilterStage] = useState('')
   const [filterSource, setFilterSource] = useState('')
   const [filterAssigned, setFilterAssigned] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'ativos' | 'bloqueados' | ''>('ativos')
   const [page, setPage] = useState(1)
+
+  // Block/unblock state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [blockTarget, setBlockTarget] = useState<Lead | null>(null)
+  const [blockLoading, setBlockLoading] = useState(false)
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
+  const menuRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
     const supabase = createClient()
@@ -64,6 +73,62 @@ export default function LeadsPage() {
     })
   }, [])
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (!openMenuId) return
+      const ref = menuRefs.current[openMenuId]
+      if (ref && !ref.contains(e.target as Node)) setOpenMenuId(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [openMenuId])
+
+  function showToast(msg: string, type: 'success' | 'error' = 'success') {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  async function handleToggleBlock(lead: Lead) {
+    const newBlocked = !lead.is_blocked
+    setBlockLoading(true)
+    const supabase = createClient()
+
+    const { error } = await supabase
+      .from('leads')
+      .update({
+        is_blocked: newBlocked,
+        ...(newBlocked ? { assigned_to: 'lukhas', is_active: false } : { is_active: true }),
+      })
+      .eq('id', lead.id)
+
+    if (error) {
+      setBlockLoading(false)
+      setBlockTarget(null)
+      showToast('Erro ao atualizar lead', 'error')
+      return
+    }
+
+    await supabase.from('activity_log').insert({
+      lead_id: lead.id,
+      action: 'lead_blocked',
+      details: {
+        blocked: newBlocked,
+        reason: newBlocked ? 'Bloqueado manualmente' : 'Desbloqueado manualmente',
+      },
+      created_by: 'admin',
+    })
+
+    setLeads(prev => prev.map(l =>
+      l.id === lead.id
+        ? { ...l, is_blocked: newBlocked, ...(newBlocked ? { assigned_to: 'lukhas' as const, is_active: false } : { is_active: true }) }
+        : l
+    ))
+    setBlockLoading(false)
+    setBlockTarget(null)
+    showToast(newBlocked ? 'Lead bloqueado. IA não responderá mais.' : 'Lead desbloqueado.')
+  }
+
   const filtered = leads.filter(l => {
     if (search) {
       const q = search.toLowerCase()
@@ -72,6 +137,8 @@ export default function LeadsPage() {
     if (filterStage && l.stage !== filterStage) return false
     if (filterSource && l.source !== filterSource && SOURCE_LABELS[l.source || ''] !== SOURCE_LABELS[filterSource]) return false
     if (filterAssigned && l.assigned_to !== filterAssigned) return false
+    if (filterStatus === 'ativos' && l.is_blocked) return false
+    if (filterStatus === 'bloqueados' && !l.is_blocked) return false
     return true
   })
 
@@ -79,8 +146,7 @@ export default function LeadsPage() {
   const safePage = Math.min(page, totalPages)
   const paginated = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE)
 
-  // Reset page when filters change
-  useEffect(() => { setPage(1) }, [search, filterStage, filterSource, filterAssigned])
+  useEffect(() => { setPage(1) }, [search, filterStage, filterSource, filterAssigned, filterStatus])
 
   const hasReadableUsername = (u: string) => u && !u.startsWith('ig_') && !/^\d{10,}$/.test(u)
 
@@ -88,6 +154,11 @@ export default function LeadsPage() {
     value: k, label: v.label,
     icon: <div className="w-2 h-2 rounded-full" style={{ backgroundColor: STAGE_DOT_COLORS[k] }} />,
   }))
+
+  const statusOptions = [
+    { value: 'ativos', label: 'Ativos' },
+    { value: 'bloqueados', label: 'Bloqueados' },
+  ]
 
   return (
     <div>
@@ -97,6 +168,7 @@ export default function LeadsPage() {
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Leads</h2>
           <p className="text-[#414844] opacity-80 mt-1">
             <span className="text-[#111827] font-semibold">{filtered.length}</span> leads encontrados
+            {filterStatus === 'ativos' && <span className="text-[#9CA3AF]"> · bloqueados ocultados</span>}
           </p>
         </div>
       </div>
@@ -142,6 +214,36 @@ export default function LeadsPage() {
           value={filterAssigned}
           onChange={v => setFilterAssigned(v)}
         />
+        {/* Status filter */}
+        <div className="flex items-center gap-1 bg-[#F7F8F9] border border-[#EFEFEF] rounded-full px-1 py-1">
+          <button
+            onClick={() => setFilterStatus('')}
+            className={cn(
+              'px-3 py-1 rounded-full text-[12px] font-semibold transition-all',
+              filterStatus === '' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]',
+            )}
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setFilterStatus('ativos')}
+            className={cn(
+              'px-3 py-1 rounded-full text-[12px] font-semibold transition-all',
+              filterStatus === 'ativos' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]',
+            )}
+          >
+            Ativos
+          </button>
+          <button
+            onClick={() => setFilterStatus('bloqueados')}
+            className={cn(
+              'px-3 py-1 rounded-full text-[12px] font-semibold transition-all',
+              filterStatus === 'bloqueados' ? 'bg-[#FEE2E2] text-[#DC2626] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]',
+            )}
+          >
+            Bloqueados
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -167,23 +269,33 @@ export default function LeadsPage() {
                 const displayName = lead.name
                   || (readable ? `@${lead.instagram_username}` : 'Lead sem identificação')
                 const displayUser = hasName && readable ? `@${lead.instagram_username}` : ''
-                const initials = (lead.name || lead.instagram_username || 'L').slice(0, 2).toUpperCase()
+                const isBlocked = !!lead.is_blocked
 
                 return (
                   <tr
                     key={lead.id}
                     onClick={() => router.push(`/leads/${lead.id}`)}
-                    className="border-b border-[#F5F5F5] last:border-b-0 hover:bg-[#FAFBFC] cursor-pointer transition-colors duration-150 group"
+                    className={cn(
+                      'border-b border-[#F5F5F5] last:border-b-0 hover:bg-[#FAFBFC] cursor-pointer transition-colors duration-150 group',
+                      isBlocked && 'opacity-60',
+                    )}
                   >
                     {/* Lead */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <LeadAvatar name={lead.name} username={lead.instagram_username} photoUrl={lead.profile_pic_url} size="md" />
                         <div className="min-w-0">
-                          <p className={cn(
-                            'text-[13px] truncate max-w-[220px]',
-                            !hasName && !readable ? 'text-[#9CA3AF] italic' : 'font-semibold text-[#111827]'
-                          )}>{displayName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className={cn(
+                              'text-[13px] truncate max-w-[200px]',
+                              !hasName && !readable ? 'text-[#9CA3AF] italic' : 'font-semibold text-[#111827]'
+                            )}>{displayName}</p>
+                            {isBlocked && (
+                              <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] uppercase tracking-wide">
+                                Bloqueado
+                              </span>
+                            )}
+                          </div>
                           {displayUser && <p className="text-[11px] text-[#9CA3AF] truncate">{displayUser}</p>}
                         </div>
                       </div>
@@ -228,19 +340,57 @@ export default function LeadsPage() {
                     </td>
 
                     {/* Ações */}
-                    <td className="px-5 py-3.5">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
+                      <div
+                        className="flex gap-1 items-center"
+                        ref={el => { menuRefs.current[lead.id] = el }}
+                      >
                         {readable && (
                           <a
                             href={`https://instagram.com/${lead.instagram_username}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3AF] hover:bg-[#F3F4F6] hover:text-[#374151] transition-all"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3AF] hover:bg-[#F3F4F6] hover:text-[#374151] transition-all opacity-0 group-hover:opacity-100"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
                         )}
+                        {/* 3-dots menu */}
+                        <div className="relative">
+                          <button
+                            onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === lead.id ? null : lead.id) }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3AF] hover:bg-[#F3F4F6] hover:text-[#374151] transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" />
+                          </button>
+                          {openMenuId === lead.id && (
+                            <div className="absolute right-0 top-full mt-1 bg-white rounded-[12px] border border-[#EFEFEF] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 w-[190px] z-50">
+                              <button
+                                onClick={e => { e.stopPropagation(); setOpenMenuId(null); router.push(`/leads/${lead.id}`) }}
+                                className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#F7F8F9] flex items-center gap-2"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" /> Abrir perfil
+                              </button>
+                              <div className="border-t border-[#F5F5F5] my-1" />
+                              {isBlocked ? (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setOpenMenuId(null); handleToggleBlock(lead) }}
+                                  className="w-full text-left px-3 py-2 text-[13px] text-[#059669] hover:bg-[#ECFDF5] flex items-center gap-2"
+                                >
+                                  <ShieldCheck className="w-3.5 h-3.5" /> Desbloquear lead
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setOpenMenuId(null); setBlockTarget(lead) }}
+                                  className="w-full text-left px-3 py-2 text-[13px] text-[#EF4444] hover:bg-[#FEF2F2] flex items-center gap-2"
+                                >
+                                  <ShieldOff className="w-3.5 h-3.5" /> Bloquear lead
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -293,6 +443,54 @@ export default function LeadsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Confirm block dialog */}
+      <Dialog open={!!blockTarget} onOpenChange={open => { if (!blockLoading && !open) setBlockTarget(null) }}>
+        <DialogContent className="[&>button]:hidden bg-white rounded-[20px] p-0 overflow-hidden w-[calc(100vw-32px)] max-w-[420px] shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+          {blockTarget && (
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-[#FEE2E2] flex items-center justify-center mb-4">
+                <ShieldOff className="w-6 h-6 text-[#EF4444]" />
+              </div>
+              <h3 className="text-[18px] font-bold text-[#111827] mb-1">Bloquear lead?</h3>
+              <p className="text-[14px] text-[#6B7280] mb-5">
+                {blockTarget.instagram_username && !blockTarget.instagram_username.startsWith('ig_')
+                  ? `@${blockTarget.instagram_username}`
+                  : blockTarget.name || 'Este lead'}{' '}
+                não receberá mais mensagens da IA e os follow-ups automáticos serão desativados.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setBlockTarget(null)}
+                  disabled={blockLoading}
+                  className="flex-1 py-2.5 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => handleToggleBlock(blockTarget)}
+                  disabled={blockLoading}
+                  className="flex-1 py-2.5 bg-[#EF4444] rounded-full text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(239,68,68,0.3)] hover:-translate-y-px active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {blockLoading ? 'Bloqueando...' : 'Bloquear'}
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Toast */}
+      {toast && (
+        <div className={cn(
+          'fixed bottom-6 right-6 z-[200] px-4 py-3 rounded-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.15)] text-[13px] font-semibold flex items-center gap-2 animate-dropdown-in',
+          toast.type === 'error'
+            ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#EF4444]/20'
+            : 'bg-[#F0FFF4] text-[#059669] border border-[#10B981]/20',
+        )}>
+          {toast.type === 'error' ? '✕' : '✓'} {toast.msg}
         </div>
       )}
     </div>

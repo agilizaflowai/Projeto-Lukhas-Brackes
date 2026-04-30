@@ -23,7 +23,9 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
   return createPortal(
     <div className="fixed inset-0 z-[100]">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => onOpenChange(false)} />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
+      {/* pointer-events-none faz esse wrapper não capturar cliques — eles passam pro overlay abaixo (que fecha o dialog).
+          O DialogContent reativa pointer-events-auto, então só o conteúdo visível captura interação. */}
+      <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
         {children}
       </div>
     </div>,
@@ -33,7 +35,7 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
 
 function DialogContent({ className, children, onClose, ...props }: React.HTMLAttributes<HTMLDivElement> & { onClose?: () => void }) {
   return (
-    <div className={cn("relative z-[101] w-full max-w-lg rounded-[20px] border border-[#EFEFEF] bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.15)] animate-dialog-in", className)} {...props}>
+    <div className={cn("pointer-events-auto relative z-[101] w-full max-w-lg rounded-[20px] border border-[#EFEFEF] bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.15)] animate-dialog-in", className)} {...props}>
       {onClose && (
         <button onClick={onClose} className="absolute right-4 top-4 rounded-full w-8 h-8 flex items-center justify-center text-[#9CA3AF] hover:bg-[#F7F8F9] hover:text-[#414844] transition-all duration-150 cursor-pointer">
           <X className="h-4 w-4" />

@@ -627,7 +627,7 @@ export default function DashboardPage() {
             {getGreeting()}, {(profile?.name || 'Lukhas').split(' ')[0]}! 💪
           </h2>
           <p className="text-[#414844] opacity-80 font-normal mt-1">
-            Monitore seu funil e atividades de hoje.
+            Monitore seu funil e atividades.
           </p>
         </div>
         <PeriodFilter onChange={loadData} activePeriod={periodLabel} />
@@ -668,7 +668,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-white p-5 sm:p-8 rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
           <div className="flex justify-between items-center mb-6 sm:mb-8">
             <h3 className="text-[15px] sm:text-[16px] font-bold text-[#111827]">Atividades Recentes</h3>
-            <a className="text-[12px] font-semibold text-[#1B3A2D] hover:opacity-80 transition-opacity" href="/leads">Ver todas</a>
+            <a className="text-[12px] font-semibold text-[#1B3A2D] hover:opacity-80 transition-opacity" href="/activities">Ver todas</a>
           </div>
           {activities.length > 0 ? (
             <div className="space-y-0">

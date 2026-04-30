@@ -199,8 +199,11 @@ export default function CallsPage() {
                     <div className="flex items-center gap-3">
                       <LeadAvatar name={call.lead?.name || null} username={call.lead?.instagram_username} photoUrl={call.lead?.profile_pic_url || null} size="md" />
                       <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-[#111827] truncate max-w-[200px]">
-                          {call.lead ? getLeadDisplayName(call.lead) : 'Lead'}
+                        <p className={cn(
+                          'text-[13px] font-semibold truncate max-w-[200px]',
+                          call.lead ? 'text-[#111827]' : 'text-[#9CA3AF] italic',
+                        )}>
+                          {call.lead ? getLeadDisplayName(call.lead) : 'Lead não identificado'}
                         </p>
                         {call.lead?.instagram_username && (
                           <p className="text-[11px] text-[#9CA3AF] truncate">

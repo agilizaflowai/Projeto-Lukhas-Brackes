@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/hooks/useProfile'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn, getLeadDisplayName } from '@/lib/utils'
+import { cn, getLeadDisplayName, sendApprovedMessage } from '@/lib/utils'
 import { Check, X, Pencil, Bot, CheckCircle, Info, AlertTriangle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -92,16 +92,20 @@ export default function MessagesPage() {
     setDismissing(msgId)
     await new Promise(r => setTimeout(r, 300))
     const msg = items.find(m => m.id === msgId)
-    const update: Record<string, unknown> = { status: 'approved', approved_by: profile?.name || 'user', approved: true }
-    if (content) update.content = content
-    await supabase.from('messages').update(update).eq('id', msgId)
-    if (msg?.lead_id) {
-      await supabase.from('activity_log').insert({
-        lead_id: msg.lead_id,
-        action: 'message_approved',
-        details: { approved_by: profile?.name || 'user', lead_name: msg.lead?.name || msg.lead?.instagram_username },
-        created_by: profile?.name || 'user',
+    // Conte\u00fado final: edi\u00e7\u00e3o do usu\u00e1rio ou conte\u00fado original (RPC detecta se mudou)
+    const finalContent = content ?? msg?.content ?? ''
+    try {
+      // RPC aprova a mensagem E, se houve edi\u00e7\u00e3o, salva como exemplo pra IA aprender
+      // Tamb\u00e9m registra no activity_log internamente
+      await supabase.rpc('approve_message_with_correction', {
+        p_message_id: msgId,
+        p_new_content: finalContent,
+        p_approved_by: profile?.name || 'admin',
       })
+      // Só dispara o envio via Instagram DM se a aprovação no banco foi bem-sucedida
+      await sendApprovedMessage(msgId)
+    } catch (err) {
+      console.error('Erro ao aprovar mensagem:', err)
     }
     setItems(prev => prev.filter(m => m.id !== msgId))
     setEditingId(null)
@@ -127,11 +131,16 @@ export default function MessagesPage() {
 
   async function saveCorrection() {
     if (!correctDialog.msg || !correctText.trim()) return
-    await supabase.from('ai_config').insert({
-      config_type: 'example_conversation',
-      config_key: `correction_${Date.now()}`,
-      config_value: `IA escreveu: "${correctDialog.msg.content}"\nDeveria ser: "${correctText}"`,
-    })
+    try {
+      // RPC salva a corre\u00e7\u00e3o como exemplo de conversa e registra no activity_log
+      await supabase.rpc('correct_ai_message', {
+        p_message_id: correctDialog.msg.id,
+        p_correct_response: correctText,
+        p_corrected_by: profile?.name || 'admin',
+      })
+    } catch (err) {
+      console.error('Erro ao corrigir mensagem da IA:', err)
+    }
     setCorrectDialog({ open: false, msg: null })
     setCorrectText('')
   }
