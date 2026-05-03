@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { UserRole } from '@/lib/types'
 import {
   X, LayoutDashboard, GitBranch, Users, Snowflake,
-  MessageSquare, Trophy, Phone, CheckSquare, RefreshCcw,
+  MessageSquare, Trophy, Phone, CheckSquare,
   Settings,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -16,7 +16,6 @@ interface SidebarProps {
   role: UserRole | undefined
   pendingMessages: number
   pendingTasks: number
-  overdueFollowUps: number
   upcomingCalls: number
   open: boolean
   onClose: () => void
@@ -24,11 +23,10 @@ interface SidebarProps {
   profile?: { name?: string; email?: string; role?: string; avatar?: string | null } | null
 }
 
-type BadgeKey = 'pendingMessages' | 'pendingTasks' | 'overdueFollowUps' | 'upcomingCalls'
+type BadgeKey = 'pendingMessages' | 'pendingTasks' | 'upcomingCalls'
 
 const BADGE_COLORS: Record<BadgeKey, string> = {
   pendingMessages: 'bg-[#EF4444]',    // red — urgent
-  overdueFollowUps: 'bg-[#EF4444]',   // red — urgent
   pendingTasks: 'bg-[#F59E0B]',       // amber — important
   upcomingCalls: 'bg-[#3B82F6]',      // blue — reminder
 }
@@ -42,12 +40,11 @@ const nav: { href: string; label: string; icon: LucideIcon; badge?: BadgeKey }[]
   { href: '/testimonials', label: 'Depoimentos', icon: Trophy },
   { href: '/calls', label: 'Calls', icon: Phone, badge: 'upcomingCalls' },
   { href: '/tasks', label: 'Tarefas', icon: CheckSquare, badge: 'pendingTasks' },
-  { href: '/follow-up', label: 'Follow-up', icon: RefreshCcw, badge: 'overdueFollowUps' },
 ]
 
-export function Sidebar({ role, pendingMessages, pendingTasks, overdueFollowUps, upcomingCalls, open, onClose, onLeadCreated, profile }: SidebarProps) {
+export function Sidebar({ role, pendingMessages, pendingTasks, upcomingCalls, open, onClose, onLeadCreated, profile }: SidebarProps) {
   const pathname = usePathname()
-  const badges: Record<BadgeKey, number> = { pendingMessages, pendingTasks, overdueFollowUps, upcomingCalls }
+  const badges: Record<BadgeKey, number> = { pendingMessages, pendingTasks, upcomingCalls }
   const allItems = [
     ...nav,
     ...(role !== 'operator' ? [{ href: '/settings', label: 'Configurações', icon: Settings }] : []),

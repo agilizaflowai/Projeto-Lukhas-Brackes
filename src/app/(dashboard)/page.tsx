@@ -79,16 +79,6 @@ interface Activity {
   lead_pic: string | null
 }
 
-interface FollowUp {
-  id: string
-  lead_id: string
-  initial: string
-  name: string
-  detail: string
-  profile_pic_url: string | null
-  follow_up_count: number
-}
-
 interface OriginData {
   source: string
   count: number
@@ -204,7 +194,6 @@ export default function DashboardPage() {
   const [chartTitle, setChartTitle] = useState('Leads por Semana')
   const [chartBadge, setChartBadge] = useState('Semana Atual')
   const [activities, setActivities] = useState<Activity[]>([])
-  const [followUps, setFollowUps] = useState<FollowUp[]>([])
   const [origins, setOrigins] = useState<OriginData[]>([])
   const [initialLoading, setInitialLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
@@ -265,7 +254,6 @@ export default function DashboardPage() {
       r_allLeads,
       r_stageData,
       r_weeklyLeads,
-      r_upcomingFollowUps,
       r_sourceData,
       r_activities,
     ] = await Promise.all([
@@ -283,10 +271,6 @@ export default function DashboardPage() {
       safeQuery<any[]>(supabase.from('leads').select('created_at')
         .gte('created_at', from).lte('created_at', to)
         .order('created_at', { ascending: true })),
-      safeQuery<any[]>(supabase.from('leads').select('id, name, instagram_username, profile_pic_url, next_follow_up_at, follow_up_count')
-        .eq('stage', 'follow_up')
-        .eq('is_active', true)
-        .order('next_follow_up_at', { ascending: true, nullsFirst: false }).limit(3)),
       safeQuery<any[]>(supabase.from('leads').select('source')
         .gte('created_at', from).lte('created_at', to)),
       safeQuery<any[]>(supabase.from('activity_log').select('id, lead_id, action, details, created_at, lead:leads(name, instagram_username, profile_pic_url)')
@@ -300,7 +284,6 @@ export default function DashboardPage() {
     const allLeads = r_allLeads.data
     const stageData = r_stageData.data
     const weeklyLeads = r_weeklyLeads.data
-    const upcomingFollowUps = r_upcomingFollowUps.data
     const sourceData = r_sourceData.data
     const recentActivities = r_activities.data
 
@@ -504,37 +487,6 @@ export default function DashboardPage() {
       finalActivities = derived.slice(0, 5)
     }
 
-    // Follow-ups
-    const finalFollowUps: FollowUp[] = (upcomingFollowUps || []).map((l: any) => {
-      const name = l.name || l.instagram_username || 'Lead'
-      let detail = ''
-      if (l.next_follow_up_at) {
-        const nextDate = new Date(l.next_follow_up_at)
-        const diffMs = nextDate.getTime() - now.getTime()
-        const diffMins = Math.round(diffMs / 60000)
-        if (diffMins < 0) {
-          const overdueMins = Math.abs(diffMins)
-          if (overdueMins < 60) detail = `Atrasado ${overdueMins}min`
-          else if (overdueMins < 1440) detail = `Atrasado ${Math.round(overdueMins / 60)}h`
-          else detail = `Atrasado ${Math.round(overdueMins / 1440)}d`
-        } else if (diffMins < 60) detail = `Em ${diffMins}min`
-        else if (diffMins < 1440) detail = `Em ${Math.round(diffMins / 60)}h`
-        else detail = `Em ${Math.round(diffMins / 1440)} dia(s)`
-      } else {
-        detail = 'Aguardando envio'
-      }
-
-      return {
-        id: l.id,
-        lead_id: l.id,
-        initial: name[0].toUpperCase(),
-        name,
-        detail,
-        profile_pic_url: l.profile_pic_url || null,
-        follow_up_count: l.follow_up_count || 0,
-      }
-    })
-
     // Origins
     const sourceCounts: Record<string, number> = {}
     sourceData?.forEach((l: any) => {
@@ -566,7 +518,6 @@ export default function DashboardPage() {
     setChartTitle(cTitle)
     setChartBadge(cBadge)
     setActivities(finalActivities)
-    setFollowUps(finalFollowUps)
     setOrigins(finalOrigins)
     hasLoadedRef.current = true
     setInitialLoading(false)
@@ -744,33 +695,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Follow-ups */}
-      <section className="bg-white border border-[#EFEFEF] rounded-[20px] p-5 sm:p-[24px_28px] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)]">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-[16px] font-bold text-[#0F172A]">Próximos Follow-ups</h3>
-          <a href="/follow-up" className="text-[12px] font-bold text-[#1B3A2D] hover:opacity-80 transition-opacity">Ver todos</a>
-        </div>
-        {followUps.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {followUps.map((f) => (
-              <FollowUpCard
-                key={f.id}
-                initial={f.initial}
-                name={f.name}
-                detail={f.detail}
-                profilePic={f.profile_pic_url}
-                followUpCount={f.follow_up_count}
-                onContact={() => f.lead_id && router.push(`/leads/${f.lead_id}?tab=conversa`)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-6">
-            <p className="text-[13px] text-[#9CA3AF]">Nenhum lead em follow-up no momento</p>
-          </div>
-        )}
-      </section>
-
       {/* Charts Row */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Leads Chart */}
@@ -899,30 +823,6 @@ export default function DashboardPage() {
 }
 
 /* ═══ Sub-components ═══ */
-
-function FollowUpCard({ initial, name, detail, profilePic, followUpCount, onContact }: {
-  initial: string; name: string; detail: string; profilePic?: string | null; followUpCount?: number; onContact?: () => void
-}) {
-  return (
-    <div className="bg-[#F7F8F9] border border-[#EFEFEF] p-[14px_18px] rounded-[14px] flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <LeadAvatar name={name} photoUrl={profilePic || null} size="md" />
-        <div>
-          <p className="text-[13px] font-semibold text-[#0F172A]">{name}</p>
-          <p className="text-[11px] text-[#9CA3AF]">
-            {followUpCount ? `#${followUpCount} · ` : ''}{detail}
-          </p>
-        </div>
-      </div>
-      <button
-        onClick={onContact}
-        className="bg-[#C8E645] text-[#1B3A2D] text-[11px] font-bold px-[14px] py-[6px] rounded-full uppercase tracking-[0.04em] shadow-[0_2px_8px_rgba(200,230,69,0.35)] hover:scale-105 active:scale-95 transition-transform"
-      >
-        Contatar
-      </button>
-    </div>
-  )
-}
 
 function OriginRow({ icon: Icon, color, name, count, pct }: {
   icon: LucideIcon; color: string; name: string; count: number; pct: number

@@ -15,9 +15,10 @@ interface ColumnProps {
   title: string
   color: string
   leads: Lead[]
+  onScheduleCall?: (leadId: string) => void
 }
 
-export function Column({ id, title, color, leads }: ColumnProps) {
+export function Column({ id, title, color, leads, onScheduleCall }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
   const [showAll, setShowAll] = useState(false)
 
@@ -60,7 +61,7 @@ export function Column({ id, title, color, leads }: ColumnProps) {
       >
         <SortableContext items={visibleLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {visibleLeads.map(lead => (
-            <LeadCard key={lead.id} lead={lead} stageColor={color} />
+            <LeadCard key={lead.id} lead={lead} stageColor={color} onScheduleCall={onScheduleCall} />
           ))}
         </SortableContext>
 

@@ -59,9 +59,10 @@ interface LeadCardProps {
   lead: Lead
   stageColor: string
   overlay?: boolean
+  onScheduleCall?: (leadId: string) => void
 }
 
-export function LeadCard({ lead, stageColor, overlay }: LeadCardProps) {
+export function LeadCard({ lead, stageColor, overlay, onScheduleCall }: LeadCardProps) {
   const router = useRouter()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
@@ -276,7 +277,7 @@ export function LeadCard({ lead, stageColor, overlay }: LeadCardProps) {
                   </button>
                   <button
                     onPointerDown={e => e.stopPropagation()}
-                    onClick={e => { e.stopPropagation(); setMenuOpen(false) }}
+                    onClick={e => { e.stopPropagation(); setMenuOpen(false); onScheduleCall?.(lead.id) }}
                     className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#F7F8F9] flex items-center gap-2"
                   >
                     <Calendar className="w-3.5 h-3.5" /> Agendar call

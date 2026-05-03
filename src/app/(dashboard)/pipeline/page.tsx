@@ -343,7 +343,11 @@ export default function PipelinePage() {
       )}
 
       {/* Board */}
-      <Board leads={filtered} onStageChange={handleStageChange} />
+      <Board
+        leads={filtered}
+        onStageChange={handleStageChange}
+        onScheduleCall={(leadId) => setCallDialog({ open: true, leadId })}
+      />
 
       {/* Dialog: Schedule Call */}
       <Dialog open={callDialog.open} onOpenChange={open => { if (!open) cancelDrag() }}>

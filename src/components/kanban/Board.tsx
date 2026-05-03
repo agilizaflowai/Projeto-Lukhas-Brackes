@@ -33,9 +33,10 @@ const SCROLL_STEP = 288
 interface BoardProps {
   leads: Lead[]
   onStageChange: (leadId: string, newStage: LeadStage) => void
+  onScheduleCall?: (leadId: string) => void
 }
 
-export function Board({ leads, onStageChange }: BoardProps) {
+export function Board({ leads, onStageChange, onScheduleCall }: BoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showLeftFade, setShowLeftFade] = useState(false)
   const [showRightFade, setShowRightFade] = useState(true)
@@ -184,6 +185,7 @@ export function Board({ leads, onStageChange }: BoardProps) {
                 title={col.title}
                 color={col.color}
                 leads={leads.filter(l => l.stage === col.id)}
+                onScheduleCall={onScheduleCall}
               />
             </div>
           ))}

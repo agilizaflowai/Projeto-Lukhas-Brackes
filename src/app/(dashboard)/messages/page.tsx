@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/hooks/useProfile'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -24,12 +24,39 @@ function shortTime(dateStr: string): string {
     .replace('menos de um minuto', 'agora')
 }
 
+const PAGE_SIZE = 20
+
 export default function MessagesPage() {
   const supabase = createClient()
   const { profile } = useProfile()
   const [items, setItems] = useState<PendingMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [dismissing, setDismissing] = useState<string | null>(null)
+
+  // Pagination
+  const [page, setPage] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages - 1)
+
+  const pinBottomRef = useRef(false)
+
+  function goToPage(target: number) {
+    const next = Math.max(0, Math.min(totalPages - 1, target))
+    if (next === safePage) return
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    pinBottomRef.current = true
+    setPage(next)
+  }
+
+  useLayoutEffect(() => {
+    if (!pinBottomRef.current) return
+    pinBottomRef.current = false
+    const main = document.querySelector('main')
+    if (main) main.scrollTop = main.scrollHeight
+  }, [safePage, items.length])
 
   // Edit
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -39,12 +66,20 @@ export default function MessagesPage() {
   const [correctDialog, setCorrectDialog] = useState<{ open: boolean; msg: PendingMessage | null }>({ open: false, msg: null })
   const [correctText, setCorrectText] = useState('')
 
-  const load = useCallback(async () => {
-    const { data: msgs }: { data: any[] | null } = await supabase
+  const load = useCallback(async (pageNum: number) => {
+    setLoading(true)
+
+    const from = pageNum * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data: msgs, count }: { data: any[] | null; count: number | null } = await supabase
       .from('messages')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('status', 'pending')
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    setTotalCount(count || 0)
 
     if (!msgs || msgs.length === 0) {
       setItems([])
@@ -61,7 +96,6 @@ export default function MessagesPage() {
         .order('created_at', { ascending: false }),
     ])
 
-    // Build a map of lead_id -> most recent inbound content
     const lastInboundMap = new Map<string, string>()
     for (const m of inboundMsgs || []) {
       if (!lastInboundMap.has(m.lead_id)) {
@@ -80,13 +114,17 @@ export default function MessagesPage() {
   }, [])
 
   useEffect(() => {
-    load()
+    load(page)
+  }, [load, page])
+
+  // Realtime: refresh current page when pending messages change
+  useEffect(() => {
     const channel = supabase
       .channel('pending-msgs')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => load(page))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [load])
+  }, [load, page])
 
   async function approve(msgId: string, content?: string) {
     setDismissing(msgId)
@@ -110,6 +148,8 @@ export default function MessagesPage() {
     setItems(prev => prev.filter(m => m.id !== msgId))
     setEditingId(null)
     setDismissing(null)
+    // Reload to keep page count + total in sync
+    load(page)
   }
 
   async function reject(msgId: string) {
@@ -127,6 +167,7 @@ export default function MessagesPage() {
     }
     setItems(prev => prev.filter(m => m.id !== msgId))
     setDismissing(null)
+    load(page)
   }
 
   async function saveCorrection() {
@@ -155,13 +196,13 @@ export default function MessagesPage() {
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Mensagens Pendentes</h2>
           <p className="text-[#414844] opacity-80 mt-1">Aprove ou edite as mensagens geradas pela IA antes do envio</p>
         </div>
-        {items.length > 0 && (
+        {totalCount > 0 && (
           <div className="flex items-center bg-white rounded-[14px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden self-start md:self-auto">
             <div className="flex items-center gap-3 px-5 py-3">
-              <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+              <div className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
               <div>
                 <p className="text-[10px] font-medium text-[#9CA3AF] uppercase tracking-[0.06em]">Pendentes</p>
-                <p className="text-[18px] font-bold text-[#111827] tabular-nums">{items.length}</p>
+                <p className="text-[18px] font-bold text-[#111827] tabular-nums">{totalCount}</p>
               </div>
             </div>
           </div>
@@ -170,7 +211,21 @@ export default function MessagesPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-32 skeleton-shimmer rounded-[16px]" />)}</div>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-[16px] border border-[#EFEFEF] p-5 animate-pulse">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-[#F3F4F6]" />
+                <div className="flex-1">
+                  <div className="h-4 bg-[#F3F4F6] rounded w-[150px] mb-2" />
+                  <div className="h-3 bg-[#F3F4F6] rounded w-[100px]" />
+                </div>
+              </div>
+              <div className="h-16 bg-[#F3F4F6] rounded-[10px] mb-3" />
+              <div className="h-10 bg-[#F3F4F6] rounded-[10px]" />
+            </div>
+          ))}
+        </div>
       ) : items.length === 0 ? (
         <div className="bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] p-16 text-center">
           <div className="w-16 h-16 rounded-full bg-[#C8E645]/10 flex items-center justify-center mx-auto mb-4">
@@ -303,6 +358,48 @@ export default function MessagesPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="sticky bottom-0 z-20 flex items-center justify-between mt-4 px-5 py-3 bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
+          <span className="text-[12px] text-[#9CA3AF]">
+            Mostrando {safePage * PAGE_SIZE + 1}-{Math.min((safePage + 1) * PAGE_SIZE, totalCount)} de {totalCount}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={safePage === 0}
+              onClick={() => goToPage(safePage - 1)}
+              className="px-3 py-1.5 text-[12px] font-medium text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg disabled:opacity-40 transition-all"
+            >
+              &larr; Anterior
+            </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              const start = Math.max(0, Math.min(safePage - 2, totalPages - 5))
+              const p = start + i
+              if (p >= totalPages) return null
+              return (
+                <button
+                  key={p}
+                  onClick={() => goToPage(p)}
+                  className={cn(
+                    'w-8 h-8 rounded-lg text-[12px] font-medium transition-all',
+                    p === safePage ? 'bg-[#C8E645] text-[#111827] font-bold' : 'text-[#6B7280] hover:bg-[#F3F4F6]',
+                  )}
+                >
+                  {p + 1}
+                </button>
+              )
+            })}
+            <button
+              disabled={safePage >= totalPages - 1}
+              onClick={() => goToPage(safePage + 1)}
+              className="px-3 py-1.5 text-[12px] font-medium text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg disabled:opacity-40 transition-all"
+            >
+              Próximo &rarr;
+            </button>
+          </div>
         </div>
       )}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { cn, getLeadDisplayName } from '@/lib/utils'
@@ -79,6 +79,8 @@ const TASK_TYPE_OPTIONS = [
 
 const EMPTY_FORM = { type: '', lead_id: '', title: '', description: '', suggested_text: '', due_at: '' }
 
+const PAGE_SIZE = 20
+
 export default function TasksPage() {
   const supabase = createClient()
   const [tasks, setTasks] = useState<Task[]>([])
@@ -86,6 +88,7 @@ export default function TasksPage() {
   const [filter, setFilter] = useState<TaskStatus>('pending')
   const [dismissing, setDismissing] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
 
   // Create modal state
   const [createOpen, setCreateOpen] = useState(false)
@@ -192,6 +195,33 @@ export default function TasksPage() {
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime()
     })
 
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages - 1)
+  const paginated = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+
+  // Reset page on filter change
+  useEffect(() => { setPage(0) }, [filter])
+
+  const pinBottomRef = useRef(false)
+
+  function goToPage(target: number) {
+    const next = Math.max(0, Math.min(totalPages - 1, target))
+    if (next === safePage) return
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    pinBottomRef.current = true
+    setPage(next)
+  }
+
+  useLayoutEffect(() => {
+    if (!pinBottomRef.current) return
+    pinBottomRef.current = false
+    const main = document.querySelector('main')
+    if (main) main.scrollTop = main.scrollHeight
+  }, [safePage, paginated.length])
+
   const canCreate = !!(newTask.type && newTask.lead_id && newTask.title.trim())
 
   return (
@@ -268,7 +298,7 @@ export default function TasksPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(task => {
+          {paginated.map(task => {
             const isOverdue = task.due_at && task.status === 'pending' && isPast(new Date(task.due_at)) && !isToday(new Date(task.due_at))
             const isDueToday = task.due_at && task.status === 'pending' && isToday(new Date(task.due_at))
             const style = getTaskTypeStyle(task.type)
@@ -413,6 +443,48 @@ export default function TasksPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="sticky bottom-0 z-20 flex items-center justify-between mt-4 px-5 py-3 bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
+          <span className="text-[12px] text-[#9CA3AF]">
+            Mostrando {safePage * PAGE_SIZE + 1}-{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={safePage === 0}
+              onClick={() => goToPage(safePage - 1)}
+              className="px-3 py-1.5 text-[12px] font-medium text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg disabled:opacity-40 transition-all"
+            >
+              &larr; Anterior
+            </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              const start = Math.max(0, Math.min(safePage - 2, totalPages - 5))
+              const p = start + i
+              if (p >= totalPages) return null
+              return (
+                <button
+                  key={p}
+                  onClick={() => goToPage(p)}
+                  className={cn(
+                    'w-8 h-8 rounded-lg text-[12px] font-medium transition-all',
+                    p === safePage ? 'bg-[#C8E645] text-[#111827] font-bold' : 'text-[#6B7280] hover:bg-[#F3F4F6]',
+                  )}
+                >
+                  {p + 1}
+                </button>
+              )
+            })}
+            <button
+              disabled={safePage >= totalPages - 1}
+              onClick={() => goToPage(safePage + 1)}
+              className="px-3 py-1.5 text-[12px] font-medium text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg disabled:opacity-40 transition-all"
+            >
+              Próximo &rarr;
+            </button>
+          </div>
         </div>
       )}
 

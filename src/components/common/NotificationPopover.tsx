@@ -54,7 +54,6 @@ export function NotificationPopover() {
     const [
       { data: messages },
       { data: calls },
-      { data: overdueLeads },
       { data: closedLeads },
       { data: pendingMsgs },
     ] = await Promise.all([
@@ -63,8 +62,6 @@ export function NotificationPopover() {
       supabase.from('calls').select('id, lead_id, scheduled_at, leads!inner(name)')
         .gte('scheduled_at', now.toISOString()).lte('scheduled_at', threeDaysLater)
         .is('result', null).order('scheduled_at', { ascending: true }).limit(3),
-      supabase.from('leads').select('id, name, instagram_username, next_follow_up_at')
-        .lt('next_follow_up_at', now.toISOString()).eq('is_active', true).eq('stage', 'follow_up').limit(3),
       supabase.from('leads').select('id, name, instagram_username, stage_changed_at')
         .eq('stage', 'fechado').gte('stage_changed_at', dayAgo).order('stage_changed_at', { ascending: false }).limit(1),
       supabase.from('messages').select('id, lead_id, created_at, leads!inner(name)')
@@ -108,19 +105,6 @@ export function NotificationPopover() {
         createdAt: when,
       })
     })
-
-    // Overdue follow-ups (grouped)
-    if (overdueLeads && overdueLeads.length > 0) {
-      items.push({
-        id: 'followups-overdue',
-        type: 'follow_up',
-        title: `${overdueLeads.length} follow-up${overdueLeads.length > 1 ? 's' : ''} atrasado${overdueLeads.length > 1 ? 's' : ''}`,
-        description: overdueLeads.map((l: any) => l.name || `@${l.instagram_username}`).filter(Boolean).join(', '),
-        href: '/follow-up',
-        read: false,
-        createdAt: now,
-      })
-    }
 
     // Closed leads
     closedLeads?.forEach((l: any) => {
