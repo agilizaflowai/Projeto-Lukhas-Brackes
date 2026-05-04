@@ -294,7 +294,7 @@ export default function CallsPage() {
                 <button
                   onClick={() => requestDelete(call)}
                   aria-label="Apagar registro"
-                  className="px-2.5 py-1 rounded-[6px] border border-[#FECACA] text-[#EF4444] text-[11px] font-semibold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all whitespace-nowrap"
+                  className="px-3 py-1.5 rounded-full border border-[#FECACA] text-[#EF4444] text-[11px] font-semibold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all whitespace-nowrap"
                 >
                   Apagar registro
                 </button>
@@ -438,7 +438,7 @@ export default function CallsPage() {
                         onClick={() => requestDelete(call)}
                         aria-label="Apagar registro"
                         title="Apagar registro"
-                        className="px-2.5 py-1 rounded-[6px] border border-[#FECACA] text-[#EF4444] text-[11px] font-semibold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all whitespace-nowrap"
+                        className="px-3 py-1.5 rounded-full border border-[#FECACA] text-[#EF4444] text-[11px] font-semibold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all whitespace-nowrap"
                       >
                         Apagar registro
                       </button>
