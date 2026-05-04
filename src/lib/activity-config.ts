@@ -3,7 +3,7 @@ import {
   UserPlus, ArrowRight, MessageSquare, CheckCircle, XCircle,
   Phone, PhoneCall, RefreshCcw, User, StickyNote, Info,
   Bot, Send, Sparkles, Tag, BarChart3, Clock, CheckSquare, Search,
-  AlertTriangle, MessageCircle,
+  AlertTriangle, MessageCircle, Trash2, CheckCheck,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -41,6 +41,7 @@ const ACTIVITY_MAP: Record<string, ActivityConfig> = {
   call_scheduled:      { badge: 'CALL',      badgeColor: 'bg-[#F59E0B]/10 text-[#D97706]', icon: Phone },
   call_completed:      { badge: 'CALL',      badgeColor: 'bg-[#10B981]/10 text-[#059669]', icon: PhoneCall },
   call_analyzed:       { badge: 'ANÁLISE',   badgeColor: 'bg-[#8B5CF6]/10 text-[#7C3AED]', icon: BarChart3 },
+  call_deleted:        { badge: 'APAGADO',   badgeColor: 'bg-[#EF4444]/10 text-[#DC2626]', icon: Trash2 },
 
   // Follow-up
   follow_up_sent:      { badge: 'FOLLOW-UP', badgeColor: 'bg-[#06B6D4]/10 text-[#0891B2]', icon: RefreshCcw },
@@ -55,6 +56,7 @@ const ACTIVITY_MAP: Record<string, ActivityConfig> = {
 
   // System
   task_created:        { badge: 'TAREFA',    badgeColor: 'bg-[#6366F1]/10 text-[#4F46E5]', icon: CheckSquare },
+  tasks_bulk_completed:{ badge: 'LIMPEZA',   badgeColor: 'bg-[#10B981]/10 text-[#059669]', icon: CheckCheck },
   profile_scraped:     { badge: 'SCRAPING',  badgeColor: 'bg-[#8B5CF6]/10 text-[#7C3AED]', icon: Search },
 }
 
@@ -153,6 +155,8 @@ export function getActivityDetail(action: string, details: any): string {
       return `Call realizada${details?.duration_minutes ? ` · ${details.duration_minutes} min` : ''}`
     case 'call_analyzed':
       return `Score: ${details?.score ?? '?'}/10`
+    case 'call_deleted':
+      return 'Registro de call apagado'
     case 'follow_up_sent': {
       if (details?.type === 'manual_task') {
         return 'Tarefa de follow-up criada pelo sistema'
@@ -182,6 +186,8 @@ export function getActivityDetail(action: string, details: any): string {
       }
       return notePreview ? `Nota: "${notePreview}${details.note?.length > 50 ? '...' : ''}"` : 'Nota adicionada'
     }
+    case 'tasks_bulk_completed':
+      return `${details?.count || 0} tarefas concluídas em massa${details?.completed_by ? ` por ${details.completed_by}` : ''}`
     case 'task_created':
       return 'Nova tarefa criada'
     case 'profile_scraped':

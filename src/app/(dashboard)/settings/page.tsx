@@ -638,10 +638,10 @@ export default function SettingsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div>
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Configurações da IA</h2>
-          <p className="text-[#414844] opacity-80 mt-1">Personalize como o agente de vendas se comporta nas conversas</p>
+          <p className="text-[#414844] opacity-80 mt-1 text-[13px] sm:text-[15px]">Personalize como o agente de vendas se comporta nas conversas</p>
         </div>
         {lastSaved && (
           <span className="text-[11px] text-[#9CA3AF] flex items-center gap-1.5">
@@ -733,7 +733,7 @@ export default function SettingsPage() {
                   max={50}
                   value={maxDailyAIMessages}
                   onChange={e => setMaxDailyAIMessages(e.target.value)}
-                  className="w-[120px] bg-[#F7F8F9] border-[1.5px] border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] font-semibold text-[#374151] tabular-nums focus:border-[#C8E645] focus:ring-0 focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(200,230,69,0.12)] transition-all appearance-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-outer-spin-button]:m-0"
+                  className="w-[68px] h-9 bg-[#F7F8F9] border-[1.5px] border-[#E5E7EB] rounded-[8px] px-2 text-center text-[14px] font-semibold text-[#374151] tabular-nums focus:border-[#C8E645] focus:ring-0 focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(200,230,69,0.12)] transition-all appearance-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-outer-spin-button]:m-0"
                 />
                 <span className="text-[13px] text-[#6B7280] font-medium">mensagens por lead</span>
               </div>

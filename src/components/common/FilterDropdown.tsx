@@ -46,7 +46,7 @@ export function FilterDropdown({ label, options, value, onChange, icon }: Filter
   }
 
   return (
-    <div>
+    <div className="flex-shrink-0">
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
@@ -178,7 +178,7 @@ export function MultiFilterDropdown({ label, options, value, onChange, icon }: M
   }
 
   return (
-    <div>
+    <div className="flex-shrink-0">
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}

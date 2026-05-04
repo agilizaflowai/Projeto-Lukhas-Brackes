@@ -7,8 +7,9 @@ import { cn, getLeadDisplayName } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   ArrowLeft, ArrowUpRight, FileText, ThumbsUp, AlertTriangle, ShieldAlert,
-  XCircle, Bot, Link2, Pencil, Search, Check, X, Loader2,
+  XCircle, Bot, Link2, Pencil, Search, Check, X, Loader2, Trash2,
 } from 'lucide-react'
+import { useProfile } from '@/hooks/useProfile'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
@@ -88,11 +89,14 @@ export default function CallDetailPage() {
   const params = useParams()
   const router = useRouter()
   const callId = params.id as string
+  const { profile } = useProfile()
 
   const [call, setCall] = useState<Call | null>(null)
   const [loading, setLoading] = useState(true)
   const [notes, setNotes] = useState('')
   const [savingResult, setSavingResult] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Vincular lead — dialog de busca
   const [linkDialog, setLinkDialog] = useState(false)
@@ -135,6 +139,60 @@ export default function CallDetailPage() {
     await supabase.from('calls').update({ result }).eq('id', call.id)
     setCall(prev => prev ? { ...prev, result } : prev)
     setSavingResult(false)
+  }
+
+  async function confirmDeleteCall() {
+    if (!call) return
+    setDeleting(true)
+    const supabase = createClient()
+    const leadId = call.lead?.id || (call as any).lead_id || null
+    const leadName = call.lead ? getLeadDisplayName(call.lead) : 'esta call'
+
+    try {
+      const { error } = await supabase.from('calls').delete().eq('id', call.id)
+      if (error) throw error
+
+      if (leadId) {
+        const { count: otherCalls } = await supabase
+          .from('calls')
+          .select('id', { count: 'exact', head: true })
+          .eq('lead_id', leadId)
+
+        if ((otherCalls || 0) === 0) {
+          const { data: lead } = await supabase
+            .from('leads')
+            .select('stage')
+            .eq('id', leadId)
+            .single()
+
+          if (lead?.stage === 'call_agendada') {
+            await supabase.from('leads')
+              .update({ stage: 'spin', stage_changed_at: new Date().toISOString() })
+              .eq('id', leadId)
+
+            await supabase.from('activity_log').insert({
+              lead_id: leadId,
+              action: 'stage_changed',
+              details: { from: 'call_agendada', to: 'spin', reason: 'call_deleted', lead_name: leadName },
+              created_by: profile?.name || 'admin',
+            })
+          }
+        }
+      }
+
+      await supabase.from('activity_log').insert({
+        lead_id: leadId,
+        action: 'call_deleted',
+        details: { call_id: call.id, lead_name: leadName },
+        created_by: profile?.name || 'admin',
+      })
+
+      setDeleteOpen(false)
+      router.push('/calls')
+    } catch (err) {
+      console.error('Erro ao apagar call:', err)
+      setDeleting(false)
+    }
   }
 
   async function saveNotes() {
@@ -239,18 +297,27 @@ export default function CallDetailPage() {
 
   return (
     <div>
-      {/* Back nav */}
-      <button
-        onClick={() => router.push('/calls')}
-        className="flex items-center gap-2 text-[13px] font-medium text-[#6B7280] hover:text-[#111827] mb-5 transition-colors group"
-      >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" />
-        Voltar para calls
-      </button>
+      {/* Back nav + delete */}
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <button
+          onClick={() => router.push('/calls')}
+          className="flex items-center gap-2 text-[13px] font-medium text-[#6B7280] hover:text-[#111827] transition-colors group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" />
+          Voltar para calls
+        </button>
+        <button
+          onClick={() => setDeleteOpen(true)}
+          aria-label="Apagar registro"
+          className="px-2.5 py-1 rounded-[6px] border border-[#FECACA] text-[#EF4444] text-[11px] font-semibold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all whitespace-nowrap"
+        >
+          Apagar registro
+        </button>
+      </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
         {/* Left column — Transcript */}
-        <div className="flex-1 bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
+        <div className="flex-1 min-w-0 bg-white rounded-[16px] sm:rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
           {/* Header */}
           <div className="px-6 py-5 border-b border-[#F3F4F6]">
             <div className="flex items-center gap-4 flex-wrap">
@@ -616,6 +683,44 @@ export default function CallDetailPage() {
           <span className="flex-1 leading-relaxed">{toast.message}</span>
         </div>
       )}
+
+      {/* Delete confirm */}
+      <Dialog open={deleteOpen} onOpenChange={(v) => { if (!v && !deleting) setDeleteOpen(false) }}>
+        <DialogContent className="[&>button]:hidden bg-white rounded-[20px] p-0 w-[calc(100vw-32px)] max-w-[400px] shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+          <div className="p-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-[#FEF2F2] flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-[#EF4444]" />
+            </div>
+            <h3 className="text-[16px] font-bold text-[#111827] mb-1">Apagar call</h3>
+            <p className="text-[13px] text-[#6B7280] leading-relaxed">
+              Tem certeza que deseja apagar a call
+              {call?.lead && <> com <strong className="text-[#111827]">{getLeadDisplayName(call.lead)}</strong></>}?
+              A transcrição e análise da IA serão perdidas.
+            </p>
+            <p className="text-[12px] text-[#9CA3AF] mt-2">Essa ação não pode ser desfeita.</p>
+          </div>
+          <div className="border-t border-[#F3F4F6] px-6 py-4 flex gap-3">
+            <button
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleting}
+              className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmDeleteCall}
+              disabled={deleting}
+              className="flex-1 py-3 bg-[#EF4444] text-white rounded-full text-[14px] font-bold hover:bg-[#DC2626] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {deleting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Apagando...</>
+              ) : (
+                <><Trash2 className="w-4 h-4" /> Apagar</>
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

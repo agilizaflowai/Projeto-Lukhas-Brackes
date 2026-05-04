@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -45,6 +46,26 @@ const nav: { href: string; label: string; icon: LucideIcon; badge?: BadgeKey }[]
 export function Sidebar({ role, pendingMessages, pendingTasks, upcomingCalls, open, onClose, onLeadCreated, profile }: SidebarProps) {
   const pathname = usePathname()
   const badges: Record<BadgeKey, number> = { pendingMessages, pendingTasks, upcomingCalls }
+
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (open) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = prev }
+    }
+  }, [open])
+
+  // Close mobile sidebar with Escape
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
   const allItems = [
     ...nav,
     ...(role !== 'operator' ? [{ href: '/settings', label: 'Configurações', icon: Settings }] : []),
@@ -58,7 +79,7 @@ export function Sidebar({ role, pendingMessages, pendingTasks, upcomingCalls, op
 
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 flex h-full w-[220px] flex-col pt-5 pb-8 px-4 overflow-y-auto transition-transform lg:translate-x-0',
+          'fixed top-0 left-0 z-50 flex h-full w-[260px] sm:w-[240px] lg:w-[220px] flex-col pt-5 pb-[calc(2rem+env(safe-area-inset-bottom))] px-4 overflow-y-auto transition-transform duration-300 ease-out lg:translate-x-0',
           'bg-[#f8faf7]',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}

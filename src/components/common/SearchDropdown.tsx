@@ -50,7 +50,13 @@ function highlightMatch(text: string, term: string) {
   )
 }
 
-export function SearchDropdown() {
+interface SearchDropdownProps {
+  forceMobile?: boolean
+  autoFocus?: boolean
+  onClose?: () => void
+}
+
+export function SearchDropdown({ forceMobile = false, autoFocus = false, onClose }: SearchDropdownProps = {}) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
@@ -60,6 +66,10 @@ export function SearchDropdown() {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus()
+  }, [autoFocus])
 
   const search = useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -106,6 +116,7 @@ export function SearchDropdown() {
     setOpen(false)
     setSelectedIndex(-1)
     inputRef.current?.blur()
+    onClose?.()
     router.push(`/leads/${leadId}`)
   }
 
@@ -124,6 +135,7 @@ export function SearchDropdown() {
       setOpen(false)
       setSelectedIndex(-1)
       inputRef.current?.blur()
+      onClose?.()
       return
     }
 
@@ -167,9 +179,9 @@ export function SearchDropdown() {
   const isFocused = open || query.length > 0
 
   return (
-    <div ref={containerRef} className="relative hidden md:block">
+    <div ref={containerRef} className={forceMobile ? 'relative w-full' : 'relative hidden md:block'}>
       {/* Input container — controls border/focus, not the input */}
-      <div className={`flex items-center bg-[#F7F8F9] border-[1.5px] px-4 py-2 rounded-full w-[380px] transition-all duration-200 ${isFocused
+      <div className={`flex items-center bg-[#F7F8F9] border-[1.5px] px-3 sm:px-4 py-2 rounded-full ${forceMobile ? 'w-full' : 'w-full max-w-[380px]'} transition-all duration-200 ${isFocused
           ? 'border-[#C8E645] bg-white shadow-[0_0_0_3px_rgba(200,230,69,0.12)]'
           : 'border-[#EFEFEF] hover:border-[#D1D5DB]'
         }`}>
@@ -197,7 +209,7 @@ export function SearchDropdown() {
             <X className="w-3 h-3 text-[#6B7280]" />
           </button>
         ) : (
-          <kbd className="hidden sm:flex items-center gap-0.5 text-[10px] text-[#C0C7D0] bg-white border border-[#EFEFEF] px-1.5 py-0.5 rounded flex-shrink-0">
+          <kbd className="hidden lg:flex items-center gap-0.5 text-[10px] text-[#C0C7D0] bg-white border border-[#EFEFEF] px-1.5 py-0.5 rounded flex-shrink-0">
             ⌘K
           </kbd>
         )}

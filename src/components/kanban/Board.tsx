@@ -173,12 +173,12 @@ export function Board({ leads, onStageChange, onScheduleCall }: BoardProps) {
           onPointerDown={() => { scrollOwner.current = 'board' }}
           onPointerUp={() => { scrollOwner.current = null }}
           onPointerLeave={() => { if (scrollOwner.current === 'board') scrollOwner.current = null }}
-          className="flex gap-4 overflow-x-auto overflow-y-visible pb-4 min-h-[calc(100vh-280px)] kanban-board"
+          className="flex gap-4 overflow-x-auto overflow-y-visible pb-4 min-h-[calc(100vh-280px)] kanban-board snap-x snap-mandatory sm:snap-none"
         >
           {COLUMNS.map(col => (
             <div
               key={col.id}
-              className="flex-shrink-0"
+              className="flex-shrink-0 snap-start"
             >
               <Column
                 id={col.id}

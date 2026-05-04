@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Bell, MessageSquare, Phone, AlertTriangle, CheckCircle, Bot } from 'lucide-react'
+import { Bell, MessageSquare, Phone, AlertTriangle, CheckCircle, Bot, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -158,6 +159,16 @@ export function NotificationPopover() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
+  // Close with Escape
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
   function handleClick(n: Notification) {
     setReadIds(prev => new Set(prev).add(n.id))
     setOpen(false)
@@ -187,26 +198,48 @@ export function NotificationPopover() {
 
       {/* Popover */}
       {open && (
-        <div className="absolute top-full right-0 mt-2 w-[380px] bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_8px_30px_rgba(0,0,0,0.12)] overflow-hidden z-50 animate-dropdown-in">
+        <>
+          {/* Mobile backdrop */}
+          <div className="fixed inset-0 z-[48] bg-black/30 sm:hidden" onClick={() => setOpen(false)} />
+
+          <div
+            className={cn(
+              'bg-white border border-[#EFEFEF] shadow-[0_8px_30px_rgba(0,0,0,0.12)] overflow-hidden z-50 animate-dropdown-in rounded-[16px]',
+              // Mobile: fixed full-width minus margin, anchored below topbar
+              'fixed left-4 right-4 top-[72px]',
+              // Desktop+: anchored to trigger
+              'sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px]',
+            )}
+          >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#F5F5F5]">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-[#F5F5F5] gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <h4 className="text-[14px] font-bold text-[#111827]">Notificações</h4>
               {unreadCount > 0 && (
-                <span className="min-w-[20px] h-[20px] bg-[#EF4444]/10 text-[#EF4444] text-[11px] font-bold rounded-full flex items-center justify-center px-1.5">
+                <span className="min-w-[20px] h-[20px] bg-[#EF4444]/10 text-[#EF4444] text-[11px] font-bold rounded-full flex items-center justify-center px-1.5 flex-shrink-0">
                   {unreadCount}
                 </span>
               )}
             </div>
-            {unreadCount > 0 && (
-              <button onClick={markAllRead} className="text-[12px] font-medium text-[#9CA3AF] hover:text-[#111827] transition-colors">
-                Marcar todas como lidas
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {unreadCount > 0 && (
+                <button onClick={markAllRead} className="text-[11px] sm:text-[12px] font-medium text-[#9CA3AF] hover:text-[#111827] transition-colors">
+                  <span className="hidden sm:inline">Marcar todas como lidas</span>
+                  <span className="sm:hidden">Marcar lidas</span>
+                </button>
+              )}
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Fechar notificações"
+                className="sm:hidden w-8 h-8 rounded-full hover:bg-[#F3F4F6] flex items-center justify-center text-[#9CA3AF]"
+              >
+                <X className="w-4 h-4" />
               </button>
-            )}
+            </div>
           </div>
 
           {/* List */}
-          <div className="max-h-[400px] overflow-y-auto dropdown-scroll">
+          <div className="max-h-[calc(100dvh-200px)] sm:max-h-[400px] overflow-y-auto overscroll-contain dropdown-scroll">
             {notifications.length > 0 ? (
               notifications.map(n => {
                 const isUnread = !readIds.has(n.id)
@@ -253,16 +286,17 @@ export function NotificationPopover() {
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-5 py-2.5 border-t border-[#F5F5F5]">
+            <div className="px-4 sm:px-5 py-2.5 border-t border-[#F5F5F5]">
               <button
                 onClick={() => { setOpen(false); router.push('/messages') }}
                 className="w-full text-center text-[12px] font-semibold text-[#7A9E00] hover:text-[#5A6B00] py-1 transition-colors"
               >
-                Ver todas as atividades →
+                Ver todas as mensagens pendentes →
               </button>
             </div>
           )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   )

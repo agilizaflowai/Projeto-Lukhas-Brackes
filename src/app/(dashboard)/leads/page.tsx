@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { FilterDropdown } from '@/components/common/FilterDropdown'
 import { cn } from '@/lib/utils'
-import { Search, ExternalLink, Users, Bot, MoreVertical, ShieldOff, ShieldCheck } from 'lucide-react'
+import { Search, ExternalLink, Users, Bot, MoreVertical, ShieldOff, ShieldCheck, ChevronRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { STAGE_COLORS } from '@/lib/stage-colors'
@@ -163,10 +163,10 @@ export default function LeadsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div>
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Leads</h2>
-          <p className="text-[#414844] opacity-80 mt-1">
+          <p className="text-[#414844] opacity-80 mt-1 text-[13px] sm:text-[15px]">
             <span className="text-[#111827] font-semibold">{filtered.length}</span> leads encontrados
             {filterStatus === 'ativos' && <span className="text-[#9CA3AF]"> · bloqueados ocultados</span>}
           </p>
@@ -174,8 +174,8 @@ export default function LeadsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[280px] focus-within:border-[#C8E645] transition-colors">
+      <div className="flex items-center gap-2 mb-5 overflow-x-auto hide-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 pb-1">
+        <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[200px] sm:w-[280px] flex-shrink-0 focus-within:border-[#C8E645] transition-colors">
           <Search className="w-4 h-4 text-[#9CA3AF]" />
           <input
             className="bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
@@ -215,7 +215,7 @@ export default function LeadsPage() {
           onChange={v => setFilterAssigned(v)}
         />
         {/* Status filter */}
-        <div className="flex items-center gap-1 bg-[#F7F8F9] border border-[#EFEFEF] rounded-full px-1 py-1">
+        <div className="flex items-center gap-1 bg-[#F7F8F9] border border-[#EFEFEF] rounded-full px-1 py-1 flex-shrink-0">
           <button
             onClick={() => setFilterStatus('')}
             className={cn(
@@ -246,11 +246,87 @@ export default function LeadsPage() {
         </div>
       </div>
 
+      {/* Mobile empty */}
+      {!loading && filtered.length === 0 && (
+        <div className="sm:hidden bg-white rounded-[14px] border border-[#EFEFEF] p-6 mb-4">
+          <EmptyState icon={Users} title="Nenhum lead encontrado" description="Tente ajustar os filtros ou aguarde novos leads." />
+        </div>
+      )}
+
+      {/* Mobile cards */}
+      {!loading && filtered.length > 0 && (
+        <div className="sm:hidden space-y-3 mb-4">
+          {paginated.map(lead => {
+            const readable = hasReadableUsername(lead.instagram_username)
+            const hasName = !!lead.name
+            const displayName = lead.name
+              || (readable ? `@${lead.instagram_username}` : 'Lead sem identificação')
+            const isBlocked = !!lead.is_blocked
+            return (
+              <button
+                key={lead.id}
+                onClick={() => router.push(`/leads/${lead.id}`)}
+                className={cn(
+                  'w-full text-left bg-white rounded-[14px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] p-4 active:scale-[0.99] transition-transform',
+                  isBlocked && 'opacity-60',
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <LeadAvatar name={lead.name} username={lead.instagram_username} photoUrl={lead.profile_pic_url} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className={cn('text-[14px] font-bold truncate', !hasName && !readable ? 'text-[#9CA3AF] italic font-medium' : 'text-[#111827]')}>
+                        {displayName}
+                      </p>
+                      {isBlocked && (
+                        <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] uppercase tracking-wide">Bloq.</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={cn(
+                        'inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full',
+                        STAGE_BADGE[lead.stage] || 'bg-[#F3F4F6] text-[#6B7280]',
+                      )}>
+                        <div className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: STAGE_DOT_COLORS[lead.stage] || '#6B7280' }} />
+                        {STAGE_COLORS[lead.stage]?.label || lead.stage}
+                      </span>
+                      <span className="text-[10px] text-[#9CA3AF] truncate">{shortTime(lead.created_at)}</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#C0C7D0] flex-shrink-0" />
+                </div>
+              </button>
+            )
+          })}
+
+          {/* Mobile pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between bg-white rounded-[14px] border border-[#EFEFEF] px-4 py-3">
+              <button
+                disabled={safePage === 1}
+                onClick={() => setPage(p => p - 1)}
+                className="px-3 py-1.5 text-[12px] font-medium text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg disabled:opacity-40"
+              >
+                &larr; Ant.
+              </button>
+              <span className="text-[12px] text-[#9CA3AF]">{safePage} / {totalPages}</span>
+              <button
+                disabled={safePage === totalPages}
+                onClick={() => setPage(p => p + 1)}
+                className="px-3 py-1.5 text-[12px] font-medium text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg disabled:opacity-40"
+              >
+                Próx. &rarr;
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Table */}
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-16 skeleton-shimmer rounded-xl" />)}</div>
       ) : (
-        <div className="bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
+        <div className="hidden sm:block bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-[#FAFBFC] border-b border-[#F3F4F6]">

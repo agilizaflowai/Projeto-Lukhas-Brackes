@@ -573,16 +573,20 @@ export default function DashboardPage() {
   return (
     <div className={`space-y-6 sm:space-y-12 transition-opacity duration-200 ${reloading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
       {/* Header & Period Filter */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 lg:gap-6">
         <div>
-          <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">
+          <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D] whitespace-nowrap">
             {getGreeting()}, {(profile?.name || 'Lukhas').split(' ')[0]}! 💪
           </h2>
-          <p className="text-[#414844] opacity-80 font-normal mt-1">
+          <p className="text-[#414844] opacity-80 font-normal mt-1 text-[13px] sm:text-[15px]">
             Monitore seu funil e atividades.
           </p>
         </div>
-        <PeriodFilter onChange={loadData} activePeriod={periodLabel} />
+        <div className="-mx-3 sm:mx-0 px-3 sm:px-0 overflow-x-auto hide-scrollbar">
+          <div className="min-w-max">
+            <PeriodFilter onChange={loadData} activePeriod={periodLabel} />
+          </div>
+        </div>
       </section>
 
       {/* KPI Cards */}
@@ -596,7 +600,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Funnel & Activities */}
-      <section className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+      <section className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">
         {/* Funil de Vendas */}
         <div className="lg:col-span-3 bg-white p-5 sm:p-8 rounded-[14px] border-[0.5px] border-[#E5E7EB] relative" data-chart-container>
           <div className="flex justify-between items-center mb-6 sm:mb-8">
@@ -696,7 +700,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Charts Row */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
         {/* Leads Chart */}
         <div className="lg:col-span-2 bg-white p-5 sm:p-8 rounded-[14px] border-[0.5px] border-[#E5E7EB] relative" data-chart-container>
           <div className="flex justify-between items-start mb-6 sm:mb-8">

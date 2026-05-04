@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useProfile } from '@/hooks/useProfile'
 import { FilterDropdown } from '@/components/common/FilterDropdown'
 import { cn, getLeadDisplayName } from '@/lib/utils'
-import { Search, Phone, ChevronRight } from 'lucide-react'
+import { Search, Phone, ChevronRight, Trash2, Loader2 } from 'lucide-react'
 import { format, isAfter, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { EmptyState } from '@/components/common/EmptyState'
 import { LeadAvatar } from '@/components/common/LeadAvatar'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import type { Call } from '@/lib/types'
 
 const PER_PAGE = 20
@@ -21,16 +23,21 @@ function getInitials(name?: string | null): string {
 
 export default function CallsPage() {
   const router = useRouter()
+  const { profile } = useProfile()
   const [calls, setCalls] = useState<Call[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterResult, setFilterResult] = useState('')
   const [filterPeriod, setFilterPeriod] = useState('')
   const [page, setPage] = useState(1)
+  const [deleteCallId, setDeleteCallId] = useState<string | null>(null)
+  const [deleteCallName, setDeleteCallName] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => {
+  const loadCalls = useCallback(() => {
     const supabase = createClient()
-    supabase
+    setLoading(true)
+    return supabase
       .from('calls')
       .select('*, lead:leads(id, name, instagram_username, profile_pic_url)')
       .order('scheduled_at', { ascending: false, nullsFirst: false })
@@ -39,6 +46,74 @@ export default function CallsPage() {
         setLoading(false)
       })
   }, [])
+
+  useEffect(() => { loadCalls() }, [loadCalls])
+
+  function requestDelete(call: Call) {
+    setDeleteCallId(call.id)
+    setDeleteCallName(call.lead ? getLeadDisplayName(call.lead) : 'esta call')
+  }
+
+  async function confirmDeleteCall() {
+    if (!deleteCallId) return
+    setDeleting(true)
+    const supabase = createClient()
+
+    try {
+      const { data: callData } = await supabase
+        .from('calls')
+        .select('lead_id')
+        .eq('id', deleteCallId)
+        .single()
+
+      const { error } = await supabase.from('calls').delete().eq('id', deleteCallId)
+      if (error) throw error
+
+      // Roll back lead stage if no other calls remain
+      if (callData?.lead_id) {
+        const { count: otherCalls } = await supabase
+          .from('calls')
+          .select('id', { count: 'exact', head: true })
+          .eq('lead_id', callData.lead_id)
+
+        if ((otherCalls || 0) === 0) {
+          const { data: lead } = await supabase
+            .from('leads')
+            .select('stage')
+            .eq('id', callData.lead_id)
+            .single()
+
+          if (lead?.stage === 'call_agendada') {
+            await supabase.from('leads')
+              .update({ stage: 'spin', stage_changed_at: new Date().toISOString() })
+              .eq('id', callData.lead_id)
+
+            await supabase.from('activity_log').insert({
+              lead_id: callData.lead_id,
+              action: 'stage_changed',
+              details: { from: 'call_agendada', to: 'spin', reason: 'call_deleted', lead_name: deleteCallName },
+              created_by: profile?.name || 'admin',
+            })
+          }
+        }
+      }
+
+      await supabase.from('activity_log').insert({
+        lead_id: callData?.lead_id || null,
+        action: 'call_deleted',
+        details: { call_id: deleteCallId, lead_name: deleteCallName },
+        created_by: profile?.name || 'admin',
+      })
+
+      setDeleteCallId(null)
+      setDeleteCallName('')
+      loadCalls()
+    } catch (err) {
+      console.error('Erro ao apagar call:', err)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   // Filtering
   const filtered = calls.filter(c => {
@@ -80,16 +155,17 @@ export default function CallsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div>
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Calls</h2>
-          <p className="text-[#414844] opacity-80 mt-1">
+          <p className="text-[#414844] opacity-80 mt-1 text-[13px] sm:text-[15px]">
             <span className="font-semibold text-[#111827]">{calls.length}</span> calls registradas
           </p>
         </div>
 
-        {/* Mini stats */}
-        <div className="flex items-center bg-white rounded-[14px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
+        {/* Mini stats — scroll horizontal mobile */}
+        <div className="overflow-x-auto hide-scrollbar -mx-3 px-3 md:mx-0 md:px-0 self-stretch md:self-auto">
+        <div className="flex items-center bg-white rounded-[14px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden min-w-max">
           <div className="flex items-center gap-3 px-5 py-3 border-r border-[#F3F4F6]">
             <div className="w-2 h-2 rounded-full bg-[#10B981]" />
             <div>
@@ -121,11 +197,12 @@ export default function CallsPage() {
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[240px] focus-within:border-[#C8E645] transition-colors">
+      <div className="flex items-center gap-2 mb-5 overflow-x-auto hide-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 pb-1">
+        <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[200px] sm:w-[240px] flex-shrink-0 focus-within:border-[#C8E645] transition-colors">
           <Search className="w-4 h-4 text-[#9CA3AF]" />
           <input
             className="bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
@@ -175,7 +252,63 @@ export default function CallsPage() {
           <p className="text-[13px] text-[#9CA3AF]">Calls aparecerão aqui quando forem agendadas pelo pipeline</p>
         </div>
       ) : (
-        <div className="bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
+        <>
+        {/* Mobile cards */}
+        <div className="sm:hidden space-y-3 mb-3">
+          {paginated.map(call => (
+            <div
+              key={call.id}
+              className="bg-white rounded-[14px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden"
+            >
+              <button
+                onClick={() => router.push(`/calls/${call.id}`)}
+                className="w-full text-left p-4 active:scale-[0.99] transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <LeadAvatar name={call.lead?.name || null} username={call.lead?.instagram_username} photoUrl={call.lead?.profile_pic_url || null} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('text-[14px] font-bold truncate', call.lead ? 'text-[#111827]' : 'text-[#9CA3AF] italic')}>
+                      {call.lead ? getLeadDisplayName(call.lead) : 'Lead não identificado'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {call.result === 'fechou' && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#059669]">Fechou</span>}
+                      {call.result === 'nao_fechou' && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EF4444]/10 text-[#DC2626]">Não fechou</span>}
+                      {call.result === 'reagendar' && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F59E0B]/10 text-[#D97706]">Reagendar</span>}
+                      {call.result === 'no_show' && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#6B7280]/10 text-[#4B5563]">No-show</span>}
+                      {!call.result && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#3B82F6]/10 text-[#2563EB]">Agendada</span>}
+                      {call.scheduled_at && (
+                        <span className="text-[10px] text-[#9CA3AF]">{format(new Date(call.scheduled_at), 'dd/MM HH:mm', { locale: ptBR })}</span>
+                      )}
+                    </div>
+                  </div>
+                  {call.ai_analysis?.score != null && (
+                    <span className={cn(
+                      'text-[14px] font-bold tabular-nums flex-shrink-0',
+                      call.ai_analysis.score >= 7 ? 'text-[#10B981]' : call.ai_analysis.score >= 4 ? 'text-[#F59E0B]' : 'text-[#EF4444]',
+                    )}>{call.ai_analysis.score}</span>
+                  )}
+                  <ChevronRight className="w-4 h-4 text-[#C0C7D0] flex-shrink-0" />
+                </div>
+              </button>
+              <div className="border-t border-[#F3F4F6] bg-[#FAFBFC] px-4 py-2 flex justify-end">
+                <button
+                  onClick={() => requestDelete(call)}
+                  aria-label="Apagar registro"
+                  className="px-2.5 py-1 rounded-[6px] border border-[#FECACA] text-[#EF4444] text-[11px] font-semibold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all whitespace-nowrap"
+                >
+                  Apagar registro
+                </button>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="bg-white rounded-[14px] border border-[#EFEFEF] p-6">
+              <EmptyState icon={Phone} title="Nenhuma call encontrada" description="Tente ajustar os filtros." />
+            </div>
+          )}
+        </div>
+
+        <div className="hidden sm:block bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-[#FAFBFC] border-b border-[#F3F4F6]">
@@ -184,7 +317,7 @@ export default function CallsPage() {
                 <th className="text-left px-5 py-3 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] hidden lg:table-cell">Duração</th>
                 <th className="text-left px-5 py-3 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em] hidden md:table-cell">Score</th>
                 <th className="text-left px-5 py-3 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-[0.06em]">Resultado</th>
-                <th className="w-[60px]"></th>
+                <th className="w-[160px]"></th>
               </tr>
             </thead>
             <tbody>
@@ -299,9 +432,16 @@ export default function CallsPage() {
                   </td>
 
                   {/* Ação */}
-                  <td className="px-5 py-4">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ChevronRight className="w-4 h-4 text-[#C0C7D0]" />
+                  <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => requestDelete(call)}
+                        aria-label="Apagar registro"
+                        title="Apagar registro"
+                        className="px-2.5 py-1 rounded-[6px] border border-[#FECACA] text-[#EF4444] text-[11px] font-semibold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all whitespace-nowrap"
+                      >
+                        Apagar registro
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -318,8 +458,8 @@ export default function CallsPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-[#F3F4F6]">
-              <span className="text-[12px] text-[#9CA3AF]">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-[#F3F4F6]">
+              <span className="text-[11px] sm:text-[12px] text-[#9CA3AF]">
                 Mostrando {(safePage - 1) * PER_PAGE + 1}-{Math.min(safePage * PER_PAGE, filtered.length)} de {filtered.length}
               </span>
               <div className="flex items-center gap-1">
@@ -358,7 +498,49 @@ export default function CallsPage() {
             </div>
           )}
         </div>
+        </>
       )}
+
+      {/* Delete confirm */}
+      <Dialog
+        open={!!deleteCallId}
+        onOpenChange={(v) => { if (!v && !deleting) { setDeleteCallId(null); setDeleteCallName('') } }}
+      >
+        <DialogContent className="[&>button]:hidden bg-white rounded-[20px] p-0 w-[calc(100vw-32px)] max-w-[400px] shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+          <div className="p-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-[#FEF2F2] flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-[#EF4444]" />
+            </div>
+            <h3 className="text-[16px] font-bold text-[#111827] mb-1">Apagar call</h3>
+            <p className="text-[13px] text-[#6B7280] leading-relaxed">
+              Tem certeza que deseja apagar a call
+              {deleteCallName && <> com <strong className="text-[#111827]">{deleteCallName}</strong></>}?
+              A transcrição e análise da IA serão perdidas.
+            </p>
+            <p className="text-[12px] text-[#9CA3AF] mt-2">Essa ação não pode ser desfeita.</p>
+          </div>
+          <div className="border-t border-[#F3F4F6] px-6 py-4 flex gap-3">
+            <button
+              onClick={() => { setDeleteCallId(null); setDeleteCallName('') }}
+              disabled={deleting}
+              className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmDeleteCall}
+              disabled={deleting}
+              className="flex-1 py-3 bg-[#EF4444] text-white rounded-full text-[14px] font-bold hover:bg-[#DC2626] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {deleting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Apagando...</>
+              ) : (
+                <><Trash2 className="w-4 h-4" /> Apagar</>
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

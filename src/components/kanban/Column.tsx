@@ -30,7 +30,7 @@ export function Column({ id, title, color, leads, onScheduleCall }: ColumnProps)
       id={`column-${id}`}
       ref={setNodeRef}
       className={cn(
-        'flex flex-col min-w-[272px] max-w-[272px] h-full flex-shrink-0 transition-all duration-200',
+        'flex flex-col min-w-[260px] sm:min-w-[272px] max-w-[260px] sm:max-w-[272px] h-full flex-shrink-0 transition-all duration-200',
       )}
     >
       {/* Column header */}

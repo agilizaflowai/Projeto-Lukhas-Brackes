@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f8faf7]">
+    <div className="flex min-h-[100dvh] h-[100dvh] overflow-hidden bg-[#f8faf7]">
       <Sidebar
         role={profile?.role}
         pendingMessages={pendingMessages}
@@ -83,9 +83,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onClose={() => setSidebarOpen(false)}
         profile={profile}
       />
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px]">
+      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px] min-w-0">
         <TopBar profile={profile} onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto px-3 py-3 sm:p-6 lg:p-8 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </main>
       </div>

@@ -161,7 +161,7 @@ export function PeriodFilter({ onChange, activePeriod }: PeriodFilterProps) {
         </button>
 
         {showPicker && (
-          <div className="absolute top-full right-0 mt-2 bg-white rounded-2xl border border-[#EFEFEF] shadow-[0_8px_30px_rgba(0,0,0,0.12)] p-5 w-[280px] z-50">
+          <div className="absolute top-full right-0 mt-2 bg-white rounded-2xl border border-[#EFEFEF] shadow-[0_8px_30px_rgba(0,0,0,0.12)] p-5 w-[280px] max-w-[calc(100vw-32px)] z-50">
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => setPickerYear(pickerYear - 1)}

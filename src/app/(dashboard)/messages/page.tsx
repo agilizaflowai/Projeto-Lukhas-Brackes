@@ -191,10 +191,10 @@ export default function MessagesPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div>
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Mensagens Pendentes</h2>
-          <p className="text-[#414844] opacity-80 mt-1">Aprove ou edite as mensagens geradas pela IA antes do envio</p>
+          <p className="text-[#414844] opacity-80 mt-1 text-[13px] sm:text-[15px]">Aprove ou edite as mensagens geradas pela IA antes do envio</p>
         </div>
         {totalCount > 0 && (
           <div className="flex items-center bg-white rounded-[14px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden self-start md:self-auto">
@@ -328,28 +328,30 @@ export default function MessagesPage() {
 
                 {/* Actions */}
                 {editingId !== msg.id && (
-                  <div className="flex items-center gap-2 px-5 py-3 bg-[#FAFBFC] border-t border-[#F3F4F6]">
-                    <button
-                      onClick={() => approve(msg.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-[#C8E645] text-[#111827] text-[12px] font-bold rounded-full shadow-[0_2px_8px_rgba(200,230,69,0.3)] hover:-translate-y-px active:scale-95 transition-all"
-                    >
-                      <Check className="w-3.5 h-3.5" /> Aprovar
-                    </button>
-                    <button
-                      onClick={() => { setEditingId(msg.id); setEditContent(msg.content) }}
-                      className="flex items-center gap-1.5 px-4 py-2 border border-[#E5E7EB] text-[#374151] text-[12px] font-semibold rounded-full hover:bg-[#F7F8F9] hover:border-[#D1D5DB] active:scale-95 transition-all"
-                    >
-                      <Pencil className="w-3.5 h-3.5 text-[#6B7280]" /> Editar
-                    </button>
-                    <button
-                      onClick={() => reject(msg.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 text-[#EF4444] text-[12px] font-semibold rounded-full hover:bg-[#FEF2F2] active:scale-95 transition-all"
-                    >
-                      <X className="w-3.5 h-3.5" /> Rejeitar
-                    </button>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 sm:px-5 py-3 bg-[#FAFBFC] border-t border-[#F3F4F6]">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => approve(msg.id)}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-[#C8E645] text-[#111827] text-[12px] font-bold rounded-full shadow-[0_2px_8px_rgba(200,230,69,0.3)] hover:-translate-y-px active:scale-95 transition-all"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Aprovar
+                      </button>
+                      <button
+                        onClick={() => { setEditingId(msg.id); setEditContent(msg.content) }}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 border border-[#E5E7EB] text-[#374151] text-[12px] font-semibold rounded-full hover:bg-[#F7F8F9] hover:border-[#D1D5DB] active:scale-95 transition-all"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-[#6B7280]" /> Editar
+                      </button>
+                      <button
+                        onClick={() => reject(msg.id)}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 border border-[#FECACA] text-[#EF4444] text-[12px] font-semibold rounded-full hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all"
+                      >
+                        <X className="w-3.5 h-3.5" /> Rejeitar
+                      </button>
+                    </div>
                     <button
                       onClick={() => { setCorrectDialog({ open: true, msg }); setCorrectText('') }}
-                      className="flex items-center gap-1.5 ml-auto px-3 py-2 border border-[#E5E7EB] text-[#6B7280] text-[12px] font-medium rounded-full hover:bg-[#F7F8F9] hover:border-[#D1D5DB] transition-all"
+                      className="flex items-center justify-center gap-1.5 sm:ml-auto px-3 py-2 border border-[#E5E7EB] text-[#6B7280] text-[12px] font-medium rounded-full hover:bg-[#F7F8F9] hover:border-[#D1D5DB] transition-all"
                     >
                       <Bot className="w-3.5 h-3.5" /> Corrigir IA
                     </button>
@@ -363,8 +365,8 @@ export default function MessagesPage() {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <div className="sticky bottom-0 z-20 flex items-center justify-between mt-4 px-5 py-3 bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
-          <span className="text-[12px] text-[#9CA3AF]">
+        <div className="sticky bottom-0 z-20 flex flex-col sm:flex-row items-center justify-between gap-2 mt-4 px-4 sm:px-5 py-3 bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
+          <span className="text-[11px] sm:text-[12px] text-[#9CA3AF]">
             Mostrando {safePage * PAGE_SIZE + 1}-{Math.min((safePage + 1) * PAGE_SIZE, totalCount)} de {totalCount}
           </span>
           <div className="flex items-center gap-1">

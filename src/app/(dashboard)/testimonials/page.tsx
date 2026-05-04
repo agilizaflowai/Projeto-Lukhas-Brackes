@@ -340,21 +340,21 @@ export default function TestimonialsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div>
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Depoimentos</h2>
-          <p className="text-[#414844] opacity-80 mt-1">
+          <p className="text-[#414844] opacity-80 mt-1 text-[13px] sm:text-[15px]">
             <span className="font-semibold text-[#111827]">{items.length}</span> provas sociais segmentadas para follow-up
           </p>
         </div>
         <button onClick={openNew}
-          className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-[14px] font-bold hover:opacity-90 active:scale-95 transition-all">
+          className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-[14px] font-bold hover:opacity-90 active:scale-95 transition-all self-start sm:self-auto">
           <Plus className="w-4 h-4" /> Novo depoimento
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-5 overflow-x-auto hide-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 pb-1">
         <FilterDropdown label="Gênero" options={[{ value: 'F', label: 'Feminino' }, { value: 'M', label: 'Masculino' }]} value={filterGender} onChange={v => setFilterGender(v)} />
         <FilterDropdown label="Objetivo" options={[{ value: 'emagrecer', label: 'Emagrecer' }, { value: 'hipertrofia', label: 'Hipertrofia' }, { value: 'saude', label: 'Saúde' }, { value: 'performance', label: 'Performance' }]} value={filterGoal} onChange={v => setFilterGoal(v)} />
         <FilterDropdown label="Contexto" options={[{ value: 'mae', label: 'Mãe' }, { value: 'empresari', label: 'Empresário(a)' }, { value: 'estudante', label: 'Estudante' }, { value: 'sedentari', label: 'Sedentário(a)' }]} value={filterContext} onChange={v => setFilterContext(v)} />
@@ -362,9 +362,9 @@ export default function TestimonialsPage() {
 
       {/* Grid */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-48 skeleton-shimmer rounded-[16px]" />)}</div>
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-48 skeleton-shimmer rounded-[16px]" />)}</div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map(t => (
             <div key={t.id} className="bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden group hover:shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
               {/* Media header */}
@@ -757,7 +757,7 @@ export default function TestimonialsPage() {
 
       {/* Delete confirm */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="[&>button]:hidden bg-white rounded-[20px] p-6 w-[380px] shadow-[0_20px_60px_rgba(0,0,0,0.15)] text-center">
+        <DialogContent className="[&>button]:hidden bg-white rounded-[20px] p-6 w-[calc(100vw-32px)] max-w-[380px] shadow-[0_20px_60px_rgba(0,0,0,0.15)] text-center">
           <div className="w-14 h-14 rounded-full bg-[#EF4444]/10 flex items-center justify-center mx-auto mb-4">
             <Trash2 className="w-6 h-6 text-[#EF4444]" />
           </div>

@@ -2,11 +2,13 @@
 
 import { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useProfile } from '@/hooks/useProfile'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { cn, getLeadDisplayName } from '@/lib/utils'
 import {
   ListTodo, Check, SkipForward, CheckCircle, Copy, Plus, Search,
   Camera, Heart, MessageSquare, Phone, Bot, AlertTriangle, X,
+  CheckCheck, Trash2, Loader2,
 } from 'lucide-react'
 import { format, formatDistanceToNow, isPast, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -83,12 +85,15 @@ const PAGE_SIZE = 20
 
 export default function TasksPage() {
   const supabase = createClient()
+  const { profile } = useProfile()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<TaskStatus>('pending')
   const [dismissing, setDismissing] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [page, setPage] = useState(0)
+  const [bulkAction, setBulkAction] = useState<'complete_all' | 'clear_done' | 'clear_skipped' | null>(null)
+  const [bulkProcessing, setBulkProcessing] = useState(false)
 
   // Create modal state
   const [createOpen, setCreateOpen] = useState(false)
@@ -146,6 +151,52 @@ export default function TasksPage() {
     setTimeout(() => setCopied(null), 2000)
   }
 
+  async function executeBulkAction() {
+    if (!bulkAction) return
+    setBulkProcessing(true)
+    const adminName = profile?.name || 'admin'
+
+    try {
+      switch (bulkAction) {
+        case 'complete_all': {
+          const completedAt = new Date().toISOString()
+          const { error } = await supabase
+            .from('tasks')
+            .update({ status: 'done', completed_at: completedAt })
+            .eq('status', 'pending')
+          if (error) throw error
+
+          await supabase.from('activity_log').insert({
+            lead_id: null,
+            action: 'tasks_bulk_completed',
+            details: { count: pendingCount, completed_by: adminName },
+            created_by: adminName,
+          })
+          break
+        }
+
+        case 'clear_done': {
+          const { error } = await supabase.from('tasks').delete().eq('status', 'done')
+          if (error) throw error
+          break
+        }
+
+        case 'clear_skipped': {
+          const { error } = await supabase.from('tasks').delete().eq('status', 'skipped')
+          if (error) throw error
+          break
+        }
+      }
+
+      setBulkAction(null)
+      load()
+    } catch (err) {
+      console.error('Erro na ação em massa:', err)
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
   function searchLeads(query: string) {
     if (searchTimer.current) clearTimeout(searchTimer.current)
     if (!query.trim()) { setLeadResults([]); return }
@@ -185,6 +236,46 @@ export default function TasksPage() {
   const pendingCount = tasks.filter(t => t.status === 'pending').length
   const doneCount = tasks.filter(t => t.status === 'done').length
   const skippedCount = tasks.filter(t => t.status === 'skipped').length
+
+  const bulkConfig = (() => {
+    switch (bulkAction) {
+      case 'complete_all':
+        return {
+          icon: CheckCheck,
+          iconBg: 'bg-[#10B981]/10',
+          iconColor: 'text-[#059669]',
+          title: 'Concluir todas as tarefas',
+          description: `Tem certeza que deseja marcar ${pendingCount} ${pendingCount === 1 ? 'tarefa' : 'tarefas'} como ${pendingCount === 1 ? 'concluída' : 'concluídas'}? Isso indica que todas as ações foram realizadas.`,
+          warning: null as string | null,
+          confirmLabel: 'Concluir todas',
+          confirmClass: 'bg-[#C8E645] text-[#111827] shadow-[0_4px_14px_rgba(200,230,69,0.35)] hover:-translate-y-px',
+        }
+      case 'clear_done':
+        return {
+          icon: Trash2,
+          iconBg: 'bg-[#FEF2F2]',
+          iconColor: 'text-[#EF4444]',
+          title: 'Limpar tarefas concluídas',
+          description: `Tem certeza que deseja remover ${doneCount} ${doneCount === 1 ? 'tarefa concluída' : 'tarefas concluídas'}? O histórico será mantido no activity log.`,
+          warning: 'Essa ação não pode ser desfeita.' as string | null,
+          confirmLabel: 'Limpar',
+          confirmClass: 'bg-[#EF4444] text-white hover:bg-[#DC2626]',
+        }
+      case 'clear_skipped':
+        return {
+          icon: Trash2,
+          iconBg: 'bg-[#FEF2F2]',
+          iconColor: 'text-[#EF4444]',
+          title: 'Limpar tarefas puladas',
+          description: `Tem certeza que deseja remover ${skippedCount} ${skippedCount === 1 ? 'tarefa pulada' : 'tarefas puladas'}?`,
+          warning: 'Essa ação não pode ser desfeita.' as string | null,
+          confirmLabel: 'Limpar',
+          confirmClass: 'bg-[#EF4444] text-white hover:bg-[#DC2626]',
+        }
+      default:
+        return null
+    }
+  })()
 
   // Filter + sort
   const filtered = tasks
@@ -227,17 +318,17 @@ export default function TasksPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div>
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Tarefas</h2>
-          <p className="text-[#414844] opacity-80 mt-1">
+          <p className="text-[#414844] opacity-80 mt-1 text-[13px] sm:text-[15px]">
             <span className="font-semibold text-[#111827]">{pendingCount}</span> tarefas pendentes
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto hide-scrollbar -mx-3 px-3 lg:mx-0 lg:px-0 pb-1">
           {/* Filter tabs */}
-          <div className="flex p-1 bg-[#F3F4F6] rounded-full">
+          <div className="flex p-1 bg-[#F3F4F6] rounded-full flex-shrink-0">
             {([
               { value: 'pending' as TaskStatus, label: 'Pendentes', count: pendingCount },
               { value: 'done' as TaskStatus, label: 'Concluídas', count: doneCount },
@@ -247,10 +338,10 @@ export default function TasksPage() {
                 key={tab.value}
                 onClick={() => setFilter(tab.value)}
                 className={cn(
-                  'px-4 py-1.5 rounded-full text-[13px] font-semibold transition-all',
+                  'px-5 py-2 rounded-full text-[13px] transition-all',
                   filter === tab.value
-                    ? 'bg-white text-[#111827] shadow-sm'
-                    : 'text-[#6B7280] hover:text-[#374151]'
+                    ? 'bg-white text-[#111827] font-bold shadow-sm'
+                    : 'text-[#6B7280] font-semibold hover:text-[#374151]'
                 )}
               >
                 {tab.label}
@@ -266,13 +357,48 @@ export default function TasksPage() {
             ))}
           </div>
 
+          {/* Contextual bulk action — varies by tab */}
+          {filter === 'pending' && pendingCount > 1 && (
+            <button
+              onClick={() => setBulkAction('complete_all')}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#C8E645]/50 bg-[#C8E645]/8 text-[#1B3A2D] text-[13px] font-bold hover:bg-[#C8E645]/20 hover:border-[#C8E645] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
+            >
+              <CheckCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Concluir todas</span>
+              <span className="sm:hidden">Concluir</span>
+            </button>
+          )}
+
+          {filter === 'done' && doneCount > 0 && (
+            <button
+              onClick={() => setBulkAction('clear_done')}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#FECACA] text-[#EF4444] text-[13px] font-bold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Limpar concluídas</span>
+              <span className="sm:hidden">Limpar</span>
+            </button>
+          )}
+
+          {filter === 'skipped' && skippedCount > 0 && (
+            <button
+              onClick={() => setBulkAction('clear_skipped')}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#FECACA] text-[#EF4444] text-[13px] font-bold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Limpar puladas</span>
+              <span className="sm:hidden">Limpar</span>
+            </button>
+          )}
+
           {/* New task button */}
           <button
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-[13px] font-bold hover:opacity-90 active:scale-95 transition-all"
+            className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-[13px] font-bold hover:opacity-90 active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            Nova tarefa
+            <span className="hidden sm:inline">Nova tarefa</span>
+            <span className="sm:hidden">Nova</span>
           </button>
         </div>
       </div>
@@ -312,14 +438,15 @@ export default function TasksPage() {
                 )}
               >
                 <div className={cn(
-                  'bg-white rounded-[16px] border border-[#EFEFEF] p-5',
+                  'bg-white rounded-[16px] border border-[#EFEFEF] p-4 sm:p-5',
                   'shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)]',
                   'hover:shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.09)]',
                   'transition-all duration-200',
                   task.status === 'done' && 'opacity-60',
                   task.status === 'skipped' && 'opacity-40',
                 )}>
-                  <div className="flex items-start gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
                     {/* Type icon */}
                     <div className={cn(
                       'w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0',
@@ -421,18 +548,20 @@ export default function TasksPage() {
                       </div>
                     </div>
 
+                    </div>
+
                     {/* Actions — pending only */}
                     {task.status === 'pending' && (
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 sm:flex-shrink-0">
                         <button
                           onClick={() => markDone(task.id)}
-                          className="flex items-center gap-1.5 px-4 py-2 bg-[#C8E645] text-[#111827] text-[12px] font-bold rounded-full shadow-[0_2px_8px_rgba(200,230,69,0.3)] hover:-translate-y-px active:scale-95 transition-all"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-[#C8E645] text-[#111827] text-[12px] font-bold rounded-full shadow-[0_2px_8px_rgba(200,230,69,0.3)] hover:-translate-y-px active:scale-95 transition-all"
                         >
                           <Check className="w-3.5 h-3.5" /> Feito
                         </button>
                         <button
                           onClick={() => markSkipped(task.id)}
-                          className="flex items-center gap-1.5 px-4 py-2 border border-[#E5E7EB] text-[#6B7280] text-[12px] font-semibold rounded-full hover:bg-[#F7F8F9] hover:border-[#D1D5DB] active:scale-95 transition-all"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 border border-[#E5E7EB] text-[#6B7280] text-[12px] font-semibold rounded-full hover:bg-[#F7F8F9] hover:border-[#D1D5DB] active:scale-95 transition-all"
                         >
                           <SkipForward className="w-3.5 h-3.5" /> Pular
                         </button>
@@ -448,8 +577,8 @@ export default function TasksPage() {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <div className="sticky bottom-0 z-20 flex items-center justify-between mt-4 px-5 py-3 bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
-          <span className="text-[12px] text-[#9CA3AF]">
+        <div className="sticky bottom-0 z-20 flex flex-col sm:flex-row items-center justify-between gap-2 mt-4 px-4 sm:px-5 py-3 bg-white rounded-[16px] border border-[#EFEFEF] shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
+          <span className="text-[11px] sm:text-[12px] text-[#9CA3AF]">
             Mostrando {safePage * PAGE_SIZE + 1}-{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
           </span>
           <div className="flex items-center gap-1">
@@ -668,6 +797,49 @@ export default function TasksPage() {
               {saving ? 'Criando...' : 'Criar tarefa'}
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk action confirm */}
+      <Dialog open={!!bulkAction} onOpenChange={(v) => { if (!v && !bulkProcessing) setBulkAction(null) }}>
+        <DialogContent className="[&>button]:hidden bg-white rounded-[20px] p-0 w-[calc(100vw-32px)] max-w-[420px] shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
+          {bulkConfig && (
+            <>
+              <div className="p-6 text-center">
+                <div className={cn('w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4', bulkConfig.iconBg)}>
+                  <bulkConfig.icon className={cn('w-6 h-6', bulkConfig.iconColor)} />
+                </div>
+                <h3 className="text-[16px] font-bold text-[#111827] mb-1">{bulkConfig.title}</h3>
+                <p className="text-[13px] text-[#6B7280] leading-relaxed">{bulkConfig.description}</p>
+                {bulkConfig.warning && (
+                  <p className="text-[12px] text-[#9CA3AF] mt-2">{bulkConfig.warning}</p>
+                )}
+              </div>
+              <div className="border-t border-[#F3F4F6] px-6 py-4 flex gap-3">
+                <button
+                  onClick={() => setBulkAction(null)}
+                  disabled={bulkProcessing}
+                  className="flex-1 py-3 border-[1.5px] border-[#E5E7EB] rounded-full text-[14px] font-semibold text-[#6B7280] hover:bg-[#F7F8F9] active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={executeBulkAction}
+                  disabled={bulkProcessing}
+                  className={cn(
+                    'flex-1 py-3 rounded-full text-[14px] font-bold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2',
+                    bulkConfig.confirmClass,
+                  )}
+                >
+                  {bulkProcessing ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
+                  ) : (
+                    bulkConfig.confirmLabel
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

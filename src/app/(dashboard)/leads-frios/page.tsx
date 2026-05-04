@@ -208,23 +208,23 @@ export default function LeadsFriosPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div>
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">Leads Frios</h2>
-          <p className="text-[#414844] opacity-80 mt-1">
+          <p className="text-[#414844] opacity-80 mt-1 text-[13px] sm:text-[15px]">
             <span className="font-semibold text-[#111827]">{leads.length}</span> leads que ainda não entraram no funil ativo
           </p>
         </div>
 
         {leads.length > 0 && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 self-start sm:self-auto">
             <div className="text-right">
-              <p className="text-[12px] text-[#9CA3AF]">Abordados</p>
-              <p className="text-[18px] font-bold text-[#111827]">
-                {abordadosCount} <span className="text-[14px] font-normal text-[#9CA3AF]">/ {leads.length}</span>
+              <p className="text-[11px] sm:text-[12px] text-[#9CA3AF]">Abordados</p>
+              <p className="text-[16px] sm:text-[18px] font-bold text-[#111827]">
+                {abordadosCount} <span className="text-[13px] sm:text-[14px] font-normal text-[#9CA3AF]">/ {leads.length}</span>
               </p>
             </div>
-            <div className="w-[100px] h-[6px] bg-[#F3F4F6] rounded-full overflow-hidden">
+            <div className="w-[80px] sm:w-[100px] h-[6px] bg-[#F3F4F6] rounded-full overflow-hidden">
               <div
                 className="h-full bg-[#C8E645] rounded-full transition-all duration-500"
                 style={{ width: `${leads.length > 0 ? (abordadosCount / leads.length) * 100 : 0}%` }}
@@ -235,8 +235,8 @@ export default function LeadsFriosPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[260px] focus-within:border-[#C8E645] transition-colors">
+      <div className="flex items-center gap-2 mb-5 overflow-x-auto hide-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 pb-1">
+        <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[200px] sm:w-[260px] flex-shrink-0 focus-within:border-[#C8E645] transition-colors">
           <Search className="w-4 h-4 text-[#9CA3AF]" />
           <input
             className="bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
@@ -293,14 +293,15 @@ export default function LeadsFriosPage() {
         <button
           onClick={() => setHideAbordados(!hideAbordados)}
           className={cn(
-            'flex items-center gap-2 px-3 py-2 rounded-full text-[13px] font-medium border transition-all',
+            'flex items-center gap-2 px-3 py-2 rounded-full text-[12px] sm:text-[13px] font-medium border transition-all flex-shrink-0 whitespace-nowrap',
             hideAbordados
               ? 'bg-[#C8E645]/10 border-[#C8E645]/30 text-[#3D4F00]'
               : 'bg-white border-[#E5E7EB] text-[#6B7280]',
           )}
         >
           {hideAbordados ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          {hideAbordados ? 'Ocultando abordados' : 'Mostrando abordados'}
+          <span className="hidden sm:inline">{hideAbordados ? 'Ocultando abordados' : 'Mostrando abordados'}</span>
+          <span className="sm:hidden">{hideAbordados ? 'Ocultar' : 'Mostrar'}</span>
         </button>
       </div>
 
@@ -420,11 +421,11 @@ export default function LeadsFriosPage() {
 
                   {/* Ações */}
                   {!isAbordado && (
-                    <div className="flex items-center gap-2 px-5 py-3 bg-[#FAFBFC] border-t border-[#F5F5F5]">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 sm:px-5 py-3 bg-[#FAFBFC] border-t border-[#F5F5F5]">
                       <button
                         onClick={() => copyAndOpenChat(lead)}
                         className={cn(
-                          'flex items-center gap-1.5 px-4 py-2 rounded-full text-[12px] font-bold transition-all active:scale-95',
+                          'flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-[12px] font-bold transition-all active:scale-95 w-full sm:w-auto',
                           isCopied
                             ? 'bg-[#10B981] text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)]'
                             : 'bg-[#C8E645] text-[#111827] shadow-[0_2px_8px_rgba(200,230,69,0.3)] hover:-translate-y-px',
@@ -437,44 +438,46 @@ export default function LeadsFriosPage() {
                         )}
                       </button>
 
-                      <button
-                        onClick={() => {
-                          if (editingId === lead.id) {
-                            setEditingId(null)
-                          } else {
-                            if (!editedTexts[lead.id]) {
-                              setEditedTexts(prev => ({ ...prev, [lead.id]: suggestion }))
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (editingId === lead.id) {
+                              setEditingId(null)
+                            } else {
+                              if (!editedTexts[lead.id]) {
+                                setEditedTexts(prev => ({ ...prev, [lead.id]: suggestion }))
+                              }
+                              setEditingId(lead.id)
                             }
-                            setEditingId(lead.id)
-                          }
-                        }}
-                        className={cn(
-                          'flex items-center gap-1.5 px-3.5 py-2 border text-[12px] font-semibold rounded-full active:scale-95 transition-all',
-                          editingId === lead.id
-                            ? 'bg-[#C8E645]/10 border-[#C8E645]/30 text-[#3D4F00]'
-                            : 'border-[#E5E7EB] text-[#374151] hover:bg-[#F3F4F6] hover:text-[#111827]',
-                        )}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        {editingId === lead.id ? 'Pronto' : 'Editar msg'}
-                      </button>
+                          }}
+                          className={cn(
+                            'flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 border text-[12px] font-semibold rounded-full active:scale-95 transition-all',
+                            editingId === lead.id
+                              ? 'bg-[#C8E645]/10 border-[#C8E645]/30 text-[#3D4F00]'
+                              : 'border-[#E5E7EB] text-[#374151] hover:bg-[#F3F4F6] hover:text-[#111827]',
+                          )}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          {editingId === lead.id ? 'Pronto' : 'Editar msg'}
+                        </button>
 
-                      <button
-                        onClick={() => confirmAndMarkApproached(lead.id)}
-                        className={cn(
-                          'flex items-center gap-1.5 px-3.5 py-2 border text-[12px] font-semibold rounded-full active:scale-95 transition-all',
-                          confirmingId === lead.id
-                            ? 'bg-[#10B981] border-[#10B981] text-white'
-                            : 'border-[#E5E7EB] text-[#374151] hover:bg-[#10B981]/5 hover:border-[#10B981]/30 hover:text-[#059669]',
-                        )}
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        {confirmingId === lead.id ? 'Confirmar?' : 'Já abordei'}
-                      </button>
+                        <button
+                          onClick={() => confirmAndMarkApproached(lead.id)}
+                          className={cn(
+                            'flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 border text-[12px] font-semibold rounded-full active:scale-95 transition-all',
+                            confirmingId === lead.id
+                              ? 'bg-[#10B981] border-[#10B981] text-white'
+                              : 'border-[#E5E7EB] text-[#374151] hover:bg-[#10B981]/5 hover:border-[#10B981]/30 hover:text-[#059669]',
+                          )}
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          {confirmingId === lead.id ? 'Confirmar?' : 'Já abordei'}
+                        </button>
+                      </div>
 
                       <Link
                         href={`/leads/${lead.id}`}
-                        className="ml-auto flex items-center gap-1.5 px-3.5 py-2 border border-[#E5E7EB] text-[#6B7280] text-[12px] font-medium rounded-full hover:bg-[#F3F4F6] hover:text-[#111827] transition-all"
+                        className="hidden sm:flex sm:ml-auto items-center gap-1.5 px-3.5 py-2 border border-[#E5E7EB] text-[#6B7280] text-[12px] font-medium rounded-full hover:bg-[#F3F4F6] hover:text-[#111827] transition-all"
                       >
                         Ver ficha &rarr;
                       </Link>

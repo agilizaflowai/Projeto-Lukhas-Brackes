@@ -237,18 +237,18 @@ export default function PipelinePage() {
   return (
     <div>
       {/* Header */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
+      <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-6 mb-5 sm:mb-6">
         <div>
           <h2 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#1B3A2D]">
             Pipeline de Vendas
           </h2>
-          <p className="text-[#414844] opacity-80 font-normal mt-1">
+          <p className="text-[#414844] opacity-80 font-normal mt-1 text-[13px] sm:text-[15px]">
             <span className="font-semibold text-[#111827]">{filtered.length}</span> leads no funil · Arraste entre as etapas
           </p>
         </div>
         <button
           onClick={() => setShowNewLead(true)}
-          className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-[14px] font-bold hover:opacity-90 active:scale-95 transition-all"
+          className="flex items-center gap-2 bg-[#1B3A2D] text-white px-5 py-2.5 rounded-full text-[14px] font-bold hover:opacity-90 active:scale-95 transition-all self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Novo Lead
@@ -256,8 +256,8 @@ export default function PipelinePage() {
       </section>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[220px] focus-within:border-[#C8E645] transition-colors">
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto hide-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 pb-1">
+        <div className="flex items-center bg-[#F7F8F9] border border-[#EFEFEF] px-4 py-2 rounded-full w-[180px] sm:w-[220px] flex-shrink-0 focus-within:border-[#C8E645] transition-colors">
           <Search className="w-4 h-4 text-[#9CA3AF]" />
           <input
             className="bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] text-[#374151] w-full ml-2 placeholder-[#9CA3AF] py-0"
@@ -570,7 +570,7 @@ export default function PipelinePage() {
 
       {/* Dialog: Follow-up */}
       <Dialog open={followUpDialog.open} onOpenChange={open => { if (!open) cancelDrag() }}>
-        <DialogContent onClose={cancelDrag} className="w-[440px]">
+        <DialogContent onClose={cancelDrag} className="w-[calc(100vw-32px)] max-w-[440px]">
           <div className="text-center">
             <div className="w-[72px] h-[72px] rounded-full bg-[#FEF3C7] flex items-center justify-center mx-auto mb-5">
               <AlertCircle className="w-8 h-8 text-[#F59E0B]" />

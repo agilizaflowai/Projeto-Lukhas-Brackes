@@ -483,10 +483,10 @@ export default function LeadDetailPage() {
   const currentStage = STAGE_OPTIONS.find(s => s.value === lead.stage)
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-start">
       {/* LEFT: Profile Panel */}
-      <aside className="w-full lg:w-[340px] flex-shrink-0 bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden max-h-[calc(100vh-120px)] lg:sticky lg:top-0 self-start">
-        <div className="p-6 overflow-y-auto max-h-[calc(100vh-120px)] dropdown-scroll">
+      <aside className="w-full lg:w-[340px] flex-shrink-0 bg-white rounded-[16px] sm:rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden lg:max-h-[calc(100vh-120px)] lg:sticky lg:top-0 self-start">
+        <div className="p-5 sm:p-6 lg:overflow-y-auto lg:max-h-[calc(100vh-120px)] dropdown-scroll">
           {/* Avatar + Name */}
           <div className="flex items-start gap-4 mb-4">
             <LeadAvatar name={lead.name} username={lead.instagram_username} photoUrl={lead.profile_pic_url} size="xl" className="ring-[3px] ring-[#C8E645]/30 flex-shrink-0" />
@@ -702,7 +702,7 @@ export default function LeadDetailPage() {
       </aside>
 
       {/* RIGHT: Content */}
-      <div className="flex-1 min-w-0 flex flex-col bg-white rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden max-h-[calc(100vh-120px)] lg:sticky lg:top-0 self-start">
+      <div className="flex-1 min-w-0 flex flex-col bg-white rounded-[16px] sm:rounded-[20px] border border-[#EFEFEF] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden min-h-[60vh] lg:max-h-[calc(100vh-120px)] lg:sticky lg:top-0 self-start">
         {/* Blocked banner */}
         {lead.is_blocked && (
           <div className="flex items-center gap-3 px-5 py-3 bg-[#FFFBEB] border-b border-[#F59E0B]/20">

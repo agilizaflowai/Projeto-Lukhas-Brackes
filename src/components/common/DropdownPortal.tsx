@@ -33,14 +33,28 @@ export function DropdownPortal({
 
     function update() {
       const rect = triggerRef.current!.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const margin = 16
+
       const spaceBelow = window.innerHeight - rect.bottom - 8
       const spaceAbove = rect.top - 8
       const openDown = spaceBelow >= maxHeight || spaceBelow >= spaceAbove
 
+      // Width clamped to viewport
+      let width = Math.max(rect.width, minWidth)
+      width = Math.min(width, viewportWidth - margin * 2)
+
+      // Left, prefer trigger left; flip right if overflowing
+      let left = rect.left
+      if (left + width > viewportWidth - margin) {
+        left = viewportWidth - width - margin
+      }
+      if (left < margin) left = margin
+
       setPos({
         top: openDown ? rect.bottom + 4 : rect.top - Math.min(maxHeight, spaceAbove) - 4,
-        left: rect.left,
-        width: Math.max(rect.width, minWidth),
+        left,
+        width,
       })
     }
 
