@@ -358,10 +358,11 @@ export default function TasksPage() {
           </div>
 
           {/* Contextual bulk action — varies by tab */}
-          {filter === 'pending' && pendingCount > 1 && (
+          {filter === 'pending' && (loading || pendingCount > 1) && (
             <button
               onClick={() => setBulkAction('complete_all')}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#C8E645]/50 bg-[#C8E645]/8 text-[#1B3A2D] text-[13px] font-bold hover:bg-[#C8E645]/20 hover:border-[#C8E645] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
+              disabled={loading || pendingCount <= 1}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#C8E645]/50 bg-[#C8E645]/8 text-[#1B3A2D] text-[13px] font-bold hover:bg-[#C8E645]/20 hover:border-[#C8E645] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#C8E645]/8 disabled:hover:border-[#C8E645]/50"
             >
               <CheckCheck className="w-4 h-4" />
               <span className="hidden sm:inline">Concluir todas</span>
@@ -369,10 +370,11 @@ export default function TasksPage() {
             </button>
           )}
 
-          {filter === 'done' && doneCount > 0 && (
+          {filter === 'done' && (loading || doneCount > 0) && (
             <button
               onClick={() => setBulkAction('clear_done')}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#FECACA] text-[#EF4444] text-[13px] font-bold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
+              disabled={loading || doneCount === 0}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#FECACA] text-[#EF4444] text-[13px] font-bold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[#FECACA]"
             >
               <Trash2 className="w-4 h-4" />
               <span className="hidden sm:inline">Limpar concluídas</span>
@@ -380,10 +382,11 @@ export default function TasksPage() {
             </button>
           )}
 
-          {filter === 'skipped' && skippedCount > 0 && (
+          {filter === 'skipped' && (loading || skippedCount > 0) && (
             <button
               onClick={() => setBulkAction('clear_skipped')}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#FECACA] text-[#EF4444] text-[13px] font-bold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
+              disabled={loading || skippedCount === 0}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#FECACA] text-[#EF4444] text-[13px] font-bold hover:bg-[#FEF2F2] hover:border-[#EF4444] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[#FECACA]"
             >
               <Trash2 className="w-4 h-4" />
               <span className="hidden sm:inline">Limpar puladas</span>
