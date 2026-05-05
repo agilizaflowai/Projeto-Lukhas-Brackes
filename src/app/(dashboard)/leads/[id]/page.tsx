@@ -392,11 +392,18 @@ export default function LeadDetailPage() {
   async function handleSendMessage() {
     if (!newMessage.trim() || !lead) return
     setSending(true)
-    await supabase.from('messages').insert({
+    const { data: insertedMsg, error } = await supabase.from('messages').insert({
       lead_id: id, direction: 'outbound', channel: 'instagram', content: newMessage,
-      content_type: 'text', sent_by: profile?.role === 'admin' ? 'lukhas' : 'assistente', status: 'sent', approved: true,
-    })
+      content_type: 'text', sent_by: profile?.role === 'admin' ? 'lukhas' : 'assistente', status: 'approved', approved: true,
+    }).select('id').single()
+    if (error || !insertedMsg) {
+      console.error('Erro ao salvar mensagem:', error)
+      setSending(false)
+      return
+    }
     setNewMessage('')
+    const sent = await sendApprovedMessage(insertedMsg.id)
+    if (!sent) console.error('Mensagem salva mas falhou ao enviar via Instagram. ID:', insertedMsg.id)
     setSending(false)
   }
 
